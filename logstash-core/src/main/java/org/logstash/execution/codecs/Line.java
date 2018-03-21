@@ -2,6 +2,7 @@ package org.logstash.execution.codecs;
 
 import org.logstash.Event;
 import org.logstash.execution.Codec;
+import org.logstash.execution.LogstashPlugin;
 import org.logstash.execution.LsConfiguration;
 import org.logstash.execution.LsContext;
 import org.logstash.execution.PluginConfigSpec;
@@ -15,20 +16,21 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+@LogstashPlugin(name = "line")
 public class Line implements Codec {
 
-    static final PluginConfigSpec<String> CHARSET_CONFIG =
+    private static final PluginConfigSpec<String> CHARSET_CONFIG =
             LsConfiguration.stringSetting("charset", "UTF-8");
 
-    static final PluginConfigSpec<String> DELIMITER_CONFIG =
+    private static final PluginConfigSpec<String> DELIMITER_CONFIG =
             LsConfiguration.stringSetting("delimiter", System.lineSeparator());
 
-    static final PluginConfigSpec<String> FORMAT_CONFIG =
+    private static final PluginConfigSpec<String> FORMAT_CONFIG =
             LsConfiguration.stringSetting("format");
 
     // not sure of the preferred method (if any) for arrays of generic types
     @SuppressWarnings({"unchecked"})
-    private static Map<String, Object>[] EMPTY_MAP =
+    private static Map<String, Object>[] EMPTY_ARRAY =
             (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), 0);
 
     static String MESSAGE_FIELD = "message";
@@ -44,13 +46,22 @@ public class Line implements Codec {
 
     @Override
     public int decode(byte[] input, int offset, int length, Map<String, Object>[] events) {
+        String remainderSuffix = "";
         String s = remainder.concat(new String(input, offset, length, charset));
+        if (s.endsWith(delimiter)) {
+            // strip trailing delimiter, if any, to match Ruby implementation
+            remainderSuffix = delimiter;
+            s = s.substring(0, s.length() - delimiter.length());
+        }
+
         String[] lines = s.split(delimiter, events.length + 1);
-        int numEvents = Math.max(lines.length, events.length);
+        int numEvents = (lines.length == events.length + 1) ? events.length : lines.length;
         for (int k = 0; k < numEvents; k++) {
             setEvent(events, k, lines[k]);
         }
-        remainder = (lines.length == events.length + 1) ? lines[events.length] : "";
+        remainder = (lines.length == events.length + 1)
+                ? lines[events.length] + remainderSuffix
+                : remainderSuffix;
 
         return numEvents;
     }
@@ -58,11 +69,13 @@ public class Line implements Codec {
     @Override
     public Map<String, Object>[] flush() {
         if (remainder.length() == 0) {
-            return EMPTY_MAP;
+            return EMPTY_ARRAY;
         } else {
-            String[] lines = remainder.split(delimiter, -1);
+            String[] lines = remainder.split(delimiter, 0);
             @SuppressWarnings({"unchecked"})
-            HashMap<String, Object>[] events = (HashMap<String, Object>[]) new Object[lines.length];
+            HashMap<String, Object>[] events =
+                    (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), lines.length);
+
             for (int k = 0; k < lines.length; k++) {
                 setEvent(events, k, lines[k]);
             }
@@ -82,12 +95,10 @@ public class Line implements Codec {
         event.put(MESSAGE_FIELD, message);
     }
 
-
     @Override
     public void encode(Event event, OutputStream output) {
-        // doesn't honor the format setting, yet
         try {
-            output.write(event.toJson().getBytes(charset));
+            output.write((event.toJson() + delimiter).getBytes(charset));
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }

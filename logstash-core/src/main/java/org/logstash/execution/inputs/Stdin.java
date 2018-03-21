@@ -9,22 +9,28 @@ import org.logstash.execution.LsContext;
 import org.logstash.execution.PluginConfigSpec;
 import org.logstash.execution.PluginHelper;
 import org.logstash.execution.QueueWriter;
+import org.logstash.execution.codecs.CodecFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 
 @LogstashPlugin(name = "stdin")
 public class Stdin implements Input{
 
-    public static final String DEFAULT_CODEC_NAME = "line"; // no codec support, yet
+    public static final PluginConfigSpec<String> CODEC_CONFIG =
+            LsConfiguration.stringSetting("codec", "line");
+
     private static final int BUFFER_SIZE = 16_384;
+    static final int EVENT_BUFFER_LENGTH = 64;
 
     private String hostname;
     private InputStream stdin;
@@ -47,34 +53,49 @@ public class Stdin implements Input{
         } catch (UnknownHostException e) {
             hostname = "[unknownHost]";
         }
+        codec = CodecFactory.getInstance().getCodec(configuration.get(CODEC_CONFIG),
+                configuration, context);
         stdin = new CloseShieldInputStream(sourceStream);
     }
 
     @Override
     public void start(QueueWriter writer) {
-        Scanner input = new Scanner(stdin); // replace scanner with codec
         byte[] buffer = new byte[BUFFER_SIZE];
+        @SuppressWarnings({"unchecked"})
+        Map<String, Object>[] eventBuffer =
+                (HashMap<String, Object>[]) Array.newInstance(
+                        new HashMap<String, Object>().getClass(), EVENT_BUFFER_LENGTH);
 
         try {
-            while (!stopRequested && stdin.read(buffer) > -1) {
-                final String message = input.next();
-                Map<String, Object> event = new HashMap<>();
-                event.putIfAbsent("hostname", hostname);
-                event.put("message", message);
-                writer.push(event);
+            int bytesRead, events;
+            while (!stopRequested && (bytesRead = stdin.read(buffer)) > -1) {
+                do {
+                    events = codec.decode(buffer, 0, bytesRead, eventBuffer);
+                    bytesRead = 0;
+                    sendEvents(writer, eventBuffer, events);
+
+                } while (events == eventBuffer.length);
             }
 
-            codec.flush();
+            eventBuffer = codec.flush();
+            sendEvents(writer, eventBuffer, eventBuffer.length);
         } catch (IOException e) {
             throw new IllegalStateException(e);
-        }
-        finally {
+        } finally {
             try {
                 stdin.close();
             } catch (IOException e) {
                 // do nothing
             }
             isStopped.countDown();
+        }
+    }
+
+    private void sendEvents(QueueWriter writer, Map<String, Object>[] events, int eventCount) {
+        for (int k = 0; k < eventCount; k++) {
+            Map<String, Object> event = events[k];
+            event.putIfAbsent("hostname", hostname);
+            writer.push(event);
         }
     }
 
@@ -90,6 +111,6 @@ public class Stdin implements Input{
 
     @Override
     public Collection<PluginConfigSpec<?>> configSchema() {
-        return PluginHelper.commonInputOptions();
+        return PluginHelper.commonInputOptions(Collections.singletonList(CODEC_CONFIG));
     }
 }

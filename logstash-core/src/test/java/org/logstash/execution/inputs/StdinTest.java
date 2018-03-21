@@ -1,12 +1,14 @@
 package org.logstash.execution.inputs;
 
 import org.junit.Test;
+import org.logstash.execution.LsConfiguration;
 import org.logstash.execution.QueueWriter;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +33,7 @@ public class StdinTest {
                 super.close();
             }
         };
-        Stdin stdin = new Stdin(null, null, dummyInputStream);
+        Stdin stdin = new Stdin(new LsConfiguration(Collections.EMPTY_MAP), null, dummyInputStream);
         Thread t = new Thread(() -> stdin.start(new TestQueueWriter()));
         t.start();
         try {
@@ -45,9 +47,9 @@ public class StdinTest {
 
     @Test
     public void testEvents() {
-        String testInput = "foo\nbar\nbaz\n";
+        String testInput = "foo" + System.lineSeparator() + "bar" + System.lineSeparator() + "baz" + System.lineSeparator();
         InputStream dummyInputStream = new ByteArrayInputStream(testInput.getBytes());
-        Stdin stdin = new Stdin(null, null, dummyInputStream);
+        Stdin stdin = new Stdin(new LsConfiguration(Collections.EMPTY_MAP), null, dummyInputStream);
         TestQueueWriter queueWriter = new TestQueueWriter();
         Thread t = new Thread(() -> stdin.start(queueWriter));
         t.start();
@@ -59,6 +61,28 @@ public class StdinTest {
         }
 
         assertEquals(3, queueWriter.getEvents().size());
+    }
+
+    @Test
+    public void testMoreEventsPerReadThanBufferSize() {
+        int expectedEvents = Stdin.EVENT_BUFFER_LENGTH + 2;
+        StringBuilder s = new StringBuilder("");
+        for (int k = 0; k < expectedEvents; k++) {
+            s.append("z").append(System.lineSeparator());
+        }
+        InputStream dummyInputStream = new ByteArrayInputStream(s.toString().getBytes());
+        Stdin stdin = new Stdin(new LsConfiguration(Collections.EMPTY_MAP), null, dummyInputStream);
+        TestQueueWriter queueWriter = new TestQueueWriter();
+        Thread t = new Thread(() -> stdin.start(queueWriter));
+        t.start();
+        try {
+            Thread.sleep(50);
+            stdin.awaitStop();
+        } catch (InterruptedException e) {
+            fail("Stdin.awaitStop failed with exception: " + e);
+        }
+
+        assertEquals(expectedEvents, queueWriter.getEvents().size());
     }
 
 }
