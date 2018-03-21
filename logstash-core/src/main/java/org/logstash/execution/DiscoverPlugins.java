@@ -2,6 +2,8 @@ package org.logstash.execution;
 
 import java.lang.reflect.Constructor;
 import java.util.Set;
+
+import org.logstash.execution.codecs.CodecFactory;
 import org.reflections.Reflections;
 
 /**
@@ -26,6 +28,10 @@ public final class DiscoverPlugins {
             }
             if (Input.class.isAssignableFrom(cls)) {
                 System.out.println("Input");
+            }
+            if (Codec.class.isAssignableFrom(cls)) {
+                System.out.println("Codec");
+                CodecFactory.getInstance().addCodec(cls.getName(), cls);
             }
         }
     }
