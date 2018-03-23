@@ -64,6 +64,29 @@ public class StdinTest {
     }
 
     @Test
+    public void testUtf8Events() {
+        String[] inputs = {"München1", "安装中文输入法", "München3"};
+        String testInput = String.join(System.lineSeparator(), inputs) + System.lineSeparator();
+        InputStream dummyInputStream = new ByteArrayInputStream(testInput.getBytes());
+        Stdin stdin = new Stdin(new LsConfiguration(Collections.EMPTY_MAP), null, dummyInputStream);
+        TestQueueWriter queueWriter = new TestQueueWriter();
+        Thread t = new Thread(() -> stdin.start(queueWriter));
+        t.start();
+        try {
+            Thread.sleep(50);
+            stdin.awaitStop();
+        } catch (InterruptedException e) {
+            fail("Stdin.awaitStop failed with exception: " + e);
+        }
+
+        List<Map<String, Object>> events = queueWriter.getEvents();
+        assertEquals(3, events.size());
+        for (int k = 0; k < inputs.length; k++) {
+            assertEquals(inputs[k], events.get(k).get("message"));
+        }
+    }
+
+    @Test
     public void testMoreEventsPerReadThanBufferSize() {
         int expectedEvents = Stdin.EVENT_BUFFER_LENGTH + 2;
         StringBuilder s = new StringBuilder("");

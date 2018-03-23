@@ -16,97 +16,122 @@ public class LineTest {
 
     @Test
     public void testDecodeDefaultDelimiter() {
-        Line line = new Line(new LsConfiguration(Collections.EMPTY_MAP), null);
         String[] inputStrings = {"foo", "bar", "baz"};
         String input = String.join(System.lineSeparator(), inputStrings);
-        Map<String, Object>[] events =
-                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), inputStrings.length);
 
-        int num = line.decode(input.getBytes(), 0, input.length(), events);
-        assertEquals(inputStrings.length, num);
-        for (int k = 0; k < num; k++) {
-            assertEquals(inputStrings[k], events[k].get(Line.MESSAGE_FIELD));
-        }
-
-        events = line.flush();
-        assertEquals(0, events.length);
+        testDecode(null, null, input, inputStrings.length, inputStrings, 0);
     }
 
     @Test
     public void testDecodeCustomDelimiter() {
         String delimiter = "z";
-        int expectedEventCount = 3;
-        Line line = new Line(new LsConfiguration(Collections.singletonMap("delimiter", delimiter)), null);
-        String input = "foozbarzbaz";
-        Map<String, Object>[] events =
-                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), expectedEventCount + 1);
+        String[] inputStrings = {"foo", "bar", "bat"};
+        String input = String.join(delimiter, inputStrings);
 
-        int num = line.decode(input.getBytes(), 0, input.length(), events);
-        assertEquals(expectedEventCount, num);
-
-        events = line.flush();
-        assertEquals(0, events.length);
+        testDecode(delimiter, null, input, inputStrings.length, inputStrings, 0);
     }
 
     @Test
     public void testDecodeWithTrailingDelimiter() {
-        Line line = new Line(new LsConfiguration(Collections.EMPTY_MAP), null);
-        int expectedEventCount = 3;
-        String input = "foo\nbar\nbaz\n";
-        Map<String, Object>[] events =
-                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), expectedEventCount + 1);
-        int num = line.decode(input.getBytes(), 0, input.length(), events);
-        assertEquals(expectedEventCount, num);
+        String delimiter = "\n";
+        String[] inputs = {"foo", "bar", "baz"};
+        String input = String.join(delimiter, inputs) + delimiter;
 
-        events = line.flush();
-        assertEquals(0, events.length);
+        testDecode(null, null, input, inputs.length, inputs, 0);
     }
 
     @Test
     public void testDecodeOnDelimiterOnly() {
         String delimiter = "z";
-        int expectedEventCount = 1;
-        Line line = new Line(new LsConfiguration(Collections.singletonMap("delimiter", delimiter)), null);
         String input = "z";
-        Map<String, Object>[] events =
-                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), expectedEventCount + 1);
 
-        int num = line.decode(input.getBytes(), 0, input.length(), events);
-        assertEquals(expectedEventCount, num);
-
-        events = line.flush();
-        assertEquals(0, events.length);
+        testDecode(delimiter, null, input, input.length(), new String[]{""}, 0);
     }
 
     @Test
     public void testDecodeWithMulticharDelimiter() {
         String delimiter = "xyz";
-        int expectedEventCount = 3;
-        Line line = new Line(new LsConfiguration(Collections.singletonMap("delimiter", delimiter)), null);
-        String input = "axyzbxyzc";
-        Map<String, Object>[] events =
-                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), expectedEventCount + 1);
+        String[] inputs = {"a", "b", "c"};
+        String input = String.join(delimiter, inputs);
 
-        int num = line.decode(input.getBytes(), 0, input.length(), events);
-        assertEquals(expectedEventCount, num);
-
-        events = line.flush();
-        assertEquals(0, events.length);
+        testDecode(delimiter, null, input, inputs.length, inputs, 0);
     }
 
     @Test
     public void testDecodeWithMulticharTrailingDelimiter() {
         String delimiter = "xyz";
-        int expectedEventCount = 3;
-        Line line = new Line(new LsConfiguration(Collections.singletonMap("delimiter", delimiter)), null);
-        String input = "fooxyzbarxyzbazxyz";
+        String[] inputs = {"foo", "bar", "baz"};
+        String input = String.join(delimiter, inputs) + delimiter;
+
+        testDecode(delimiter, null, input, inputs.length, inputs, 0);
+    }
+
+    @Test
+    public void testDecodeWithUtf8() {
+        String input = "München 安装中文输入法";
+        testDecode(null, null, input + System.lineSeparator(), 1, new String[]{input}, 0);
+    }
+
+    @Test
+    public void testFlush() {
+        String[] inputs = {"The", "quick", "brown", "fox", "jumps"};
+        String input = String.join(System.lineSeparator(), inputs);
+        int bufferSize = 2;
+        testDecode(null, null, input, bufferSize, null, inputs.length - bufferSize, bufferSize);
+    }
+
+    private void testDecode(String delimiter, String charset, String inputString, Integer expectedPreflushEvents, String[] expectedMessages, Integer expectedFlushEvents) {
+        testDecode(delimiter, charset, inputString, expectedPreflushEvents, expectedMessages, expectedFlushEvents, null);
+    }
+
+    private void testDecode(String delimiter, String charset, String inputString, Integer expectedPreflushEvents, String[] expectedMessages, Integer expectedFlushEvents, Integer bufferSize) {
+        // construct codec with specified config values
+        Map<String, String> config = new HashMap<>();
+        if (delimiter != null) {
+            config.put("delimiter", delimiter);
+        }
+        if (charset != null) {
+            config.put("charset", charset);
+        }
+        Line line = new Line(new LsConfiguration(config), null);
+
+        int bufSize = bufferSize != null
+                ? bufferSize
+                : expectedPreflushEvents == null ? 10 : expectedPreflushEvents + 1;
         Map<String, Object>[] events =
-                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), expectedEventCount + 1);
-        int num = line.decode(input.getBytes(), 0, input.length(), events);
-        assertEquals(expectedEventCount, num);
+                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), bufSize);
+
+        byte[] inputBytes = inputString.getBytes();
+        int num = line.decode(inputBytes, 0, inputBytes.length, events);
+        if (expectedPreflushEvents != null) {
+            assertEquals(expectedPreflushEvents.intValue(), num);
+        }
+        if (expectedMessages != null) {
+            for (int k = 0; k < num; k++) {
+                assertEquals(expectedMessages[k], events[k].get(Line.MESSAGE_FIELD));
+            }
+        }
 
         events = line.flush();
-        assertEquals(0, events.length);
+        if (expectedFlushEvents != null) {
+            assertEquals(expectedFlushEvents.intValue(), events.length);
+        }
+    }
+
+    @Test
+    public void testDecodeWithCharset() throws Exception {
+        Map<String, Object>[] events =
+                (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), 2);
+
+        Line cp1252decoder = new Line(new LsConfiguration(Collections.singletonMap("charset", "cp1252")), null);
+        byte[] rightSingleQuoteInCp1252 = {(byte) 0x92};
+        assertEquals(1, cp1252decoder.decode(rightSingleQuoteInCp1252, events));
+        String fromCp1252 = (String)events[0].get(Line.MESSAGE_FIELD);
+        Line utf8decoder = new Line(new LsConfiguration(Collections.EMPTY_MAP), null);
+        byte[] rightSingleQuoteInUtf8 = {(byte) 0xE2, (byte) 0x80, (byte) 0x99};
+        assertEquals(1, utf8decoder.decode(rightSingleQuoteInUtf8, events));
+        String fromUtf8 = (String)events[0].get(Line.MESSAGE_FIELD);
+        assertEquals(fromCp1252, fromUtf8);
     }
 
     @Test
@@ -147,6 +172,23 @@ public class LineTest {
         assertEquals(resultingString.indexOf(delimiter), (resultingString.length() / 2) - delimiter.length());
         // second delimiter should occur at end of string
         assertEquals(resultingString.lastIndexOf(delimiter), resultingString.length() - delimiter.length());
+    }
+
+    @Test
+    public void testEncodeWithFormat() {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        Line line = new Line(new LsConfiguration(Collections.singletonMap("format", "%{host}-%{message}")), null);
+        String message = "Hello world";
+        String host = "test";
+        String expectedOutput = host + "-" + message + System.lineSeparator();
+        Event e = new Event();
+        e.setField("message", message);
+        e.setField("host", host);
+
+        line.encode(e, outputStream);
+
+        String resultingString = outputStream.toString();
+        assertEquals(expectedOutput, resultingString);
     }
 
 }

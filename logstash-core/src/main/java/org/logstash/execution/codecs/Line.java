@@ -1,6 +1,7 @@
 package org.logstash.execution.codecs;
 
 import org.logstash.Event;
+import org.logstash.StringInterpolation;
 import org.logstash.execution.Codec;
 import org.logstash.execution.LogstashPlugin;
 import org.logstash.execution.LsConfiguration;
@@ -38,10 +39,17 @@ public class Line implements Codec {
     private String delimiter;
     private Charset charset;
     private String remainder = "";
+    private String format = null;
 
     public Line(final LsConfiguration configuration, final LsContext context) {
         delimiter = configuration.get(DELIMITER_CONFIG);
         charset = Charset.forName(configuration.get(CHARSET_CONFIG));
+        format = configuration.get(FORMAT_CONFIG);
+    }
+
+    @Override
+    public int decode(byte[] input, Map<String, Object>[] events) {
+        return decode(input, 0, input.length, events);
     }
 
     @Override
@@ -98,7 +106,11 @@ public class Line implements Codec {
     @Override
     public void encode(Event event, OutputStream output) {
         try {
-            output.write((event.toJson() + delimiter).getBytes(charset));
+            String outputString = (format == null
+                    ? event.toJson()
+                    : StringInterpolation.evaluate(event, format))
+                    + delimiter;
+            output.write(outputString.getBytes(charset));
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
