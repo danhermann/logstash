@@ -28,7 +28,7 @@ public class Stdin implements Input{
     public static final PluginConfigSpec<String> CODEC_CONFIG =
             LsConfiguration.stringSetting("codec", "line");
 
-    private static final int BUFFER_SIZE = 16_384;
+    private static final int BUFFER_SIZE = 65_536;
     static final int EVENT_BUFFER_LENGTH = 64;
 
     private String hostname;

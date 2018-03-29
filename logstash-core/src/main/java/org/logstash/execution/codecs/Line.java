@@ -60,16 +60,31 @@ public class Line implements Codec {
             // strip trailing delimiter, if any, to match Ruby implementation
             remainderSuffix = delimiter;
             s = s.substring(0, s.length() - delimiter.length());
+        } else {
+            int lastIndex = s.lastIndexOf(delimiter);
+            if (lastIndex == -1) {
+                remainderSuffix = s;
+                s = "";
+            } else {
+                remainderSuffix = s.substring(lastIndex + delimiter.length());
+                s = s.substring(0, lastIndex);
+            }
         }
 
-        String[] lines = s.split(delimiter, events.length + 1);
-        int numEvents = (lines.length == events.length + 1) ? events.length : lines.length;
-        for (int k = 0; k < numEvents; k++) {
-            setEvent(events, k, lines[k]);
+        int numEvents;
+        if (s.length() > 0) {
+            String[] lines = s.split(delimiter, events.length + 1);
+            numEvents = (lines.length == events.length + 1) ? events.length : lines.length;
+            for (int k = 0; k < numEvents; k++) {
+                setEvent(events, k, lines[k]);
+            }
+            remainder = (lines.length == events.length + 1)
+                    ? lines[events.length] + delimiter + remainderSuffix
+                    : remainderSuffix;
+        } else {
+            numEvents = 0;
+            remainder = remainderSuffix;
         }
-        remainder = (lines.length == events.length + 1)
-                ? lines[events.length] + remainderSuffix
-                : remainderSuffix;
 
         return numEvents;
     }

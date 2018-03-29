@@ -15,11 +15,17 @@ import static org.junit.Assert.assertEquals;
 public class LineTest {
 
     @Test
+    public void testSimpleDecode() {
+        String input = "abc";
+        testDecode(null, null, input, 0, 1, new String[] {input});
+    }
+
+    @Test
     public void testDecodeDefaultDelimiter() {
         String[] inputStrings = {"foo", "bar", "baz"};
         String input = String.join(System.lineSeparator(), inputStrings);
 
-        testDecode(null, null, input, inputStrings.length, inputStrings, 0);
+        testDecode(null, null, input, inputStrings.length - 1, 1, inputStrings);
     }
 
     @Test
@@ -28,7 +34,7 @@ public class LineTest {
         String[] inputStrings = {"foo", "bar", "bat"};
         String input = String.join(delimiter, inputStrings);
 
-        testDecode(delimiter, null, input, inputStrings.length, inputStrings, 0);
+        testDecode(delimiter, null, input, inputStrings.length - 1, 1, inputStrings);
     }
 
     @Test
@@ -37,7 +43,7 @@ public class LineTest {
         String[] inputs = {"foo", "bar", "baz"};
         String input = String.join(delimiter, inputs) + delimiter;
 
-        testDecode(null, null, input, inputs.length, inputs, 0);
+        testDecode(null, null, input, inputs.length, 0, inputs);
     }
 
     @Test
@@ -45,7 +51,7 @@ public class LineTest {
         String delimiter = "z";
         String input = "z";
 
-        testDecode(delimiter, null, input, input.length(), new String[]{""}, 0);
+        testDecode(delimiter, null, input, 0, 0, new String[]{""});
     }
 
     @Test
@@ -54,7 +60,7 @@ public class LineTest {
         String[] inputs = {"a", "b", "c"};
         String input = String.join(delimiter, inputs);
 
-        testDecode(delimiter, null, input, inputs.length, inputs, 0);
+        testDecode(delimiter, null, input, inputs.length - 1, 1, inputs);
     }
 
     @Test
@@ -63,13 +69,13 @@ public class LineTest {
         String[] inputs = {"foo", "bar", "baz"};
         String input = String.join(delimiter, inputs) + delimiter;
 
-        testDecode(delimiter, null, input, inputs.length, inputs, 0);
+        testDecode(delimiter, null, input, inputs.length, 0, inputs);
     }
 
     @Test
     public void testDecodeWithUtf8() {
         String input = "München 安装中文输入法";
-        testDecode(null, null, input + System.lineSeparator(), 1, new String[]{input}, 0);
+        testDecode(null, null, input + System.lineSeparator(), 1, 0, new String[]{input});
     }
 
     @Test
@@ -77,14 +83,14 @@ public class LineTest {
         String[] inputs = {"The", "quick", "brown", "fox", "jumps"};
         String input = String.join(System.lineSeparator(), inputs);
         int bufferSize = 2;
-        testDecode(null, null, input, bufferSize, null, inputs.length - bufferSize, bufferSize);
+        testDecode(null, null, input, bufferSize, inputs.length - bufferSize, inputs, bufferSize);
     }
 
-    private void testDecode(String delimiter, String charset, String inputString, Integer expectedPreflushEvents, String[] expectedMessages, Integer expectedFlushEvents) {
-        testDecode(delimiter, charset, inputString, expectedPreflushEvents, expectedMessages, expectedFlushEvents, null);
+    private void testDecode(String delimiter, String charset, String inputString, Integer expectedPreflushEvents, Integer expectedFlushEvents, String[] expectedMessages) {
+        testDecode(delimiter, charset, inputString, expectedPreflushEvents, expectedFlushEvents, expectedMessages, null);
     }
 
-    private void testDecode(String delimiter, String charset, String inputString, Integer expectedPreflushEvents, String[] expectedMessages, Integer expectedFlushEvents, Integer bufferSize) {
+    private void testDecode(String delimiter, String charset, String inputString, Integer expectedPreflushEvents, Integer expectedFlushEvents, String[] expectedMessages, Integer bufferSize) {
         // construct codec with specified config values
         Map<String, String> config = new HashMap<>();
         if (delimiter != null) {
@@ -106,15 +112,19 @@ public class LineTest {
         if (expectedPreflushEvents != null) {
             assertEquals(expectedPreflushEvents.intValue(), num);
         }
+
+        Map<String, Object>[] flushEvents = line.flush();
+        if (expectedFlushEvents != null) {
+            assertEquals(expectedFlushEvents.intValue(), flushEvents.length);
+        }
+
         if (expectedMessages != null) {
             for (int k = 0; k < num; k++) {
                 assertEquals(expectedMessages[k], events[k].get(Line.MESSAGE_FIELD));
             }
-        }
-
-        events = line.flush();
-        if (expectedFlushEvents != null) {
-            assertEquals(expectedFlushEvents.intValue(), events.length);
+            for (int k = num; k < (num + flushEvents.length); k++) {
+                assertEquals(expectedMessages[k], flushEvents[k - num].get(Line.MESSAGE_FIELD));
+            }
         }
     }
 
@@ -122,15 +132,20 @@ public class LineTest {
     public void testDecodeWithCharset() throws Exception {
         Map<String, Object>[] events =
                 (HashMap<String, Object>[]) Array.newInstance(new HashMap<String, Object>().getClass(), 2);
+        Map<String, Object>[] flushEvents;
 
         Line cp1252decoder = new Line(new LsConfiguration(Collections.singletonMap("charset", "cp1252")), null);
         byte[] rightSingleQuoteInCp1252 = {(byte) 0x92};
-        assertEquals(1, cp1252decoder.decode(rightSingleQuoteInCp1252, events));
-        String fromCp1252 = (String)events[0].get(Line.MESSAGE_FIELD);
+        assertEquals(0, cp1252decoder.decode(rightSingleQuoteInCp1252, events));
+        flushEvents = cp1252decoder.flush();
+        assertEquals(1, flushEvents.length);
+        String fromCp1252 = (String)flushEvents[0].get(Line.MESSAGE_FIELD);
         Line utf8decoder = new Line(new LsConfiguration(Collections.EMPTY_MAP), null);
         byte[] rightSingleQuoteInUtf8 = {(byte) 0xE2, (byte) 0x80, (byte) 0x99};
-        assertEquals(1, utf8decoder.decode(rightSingleQuoteInUtf8, events));
-        String fromUtf8 = (String)events[0].get(Line.MESSAGE_FIELD);
+        assertEquals(0, utf8decoder.decode(rightSingleQuoteInUtf8, events));
+        flushEvents = utf8decoder.flush();
+        assertEquals(1, flushEvents.length);
+        String fromUtf8 = (String)flushEvents[0].get(Line.MESSAGE_FIELD);
         assertEquals(fromCp1252, fromUtf8);
     }
 
