@@ -3,12 +3,8 @@ package org.logstash;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
@@ -380,6 +376,35 @@ public final class Event implements Cloneable, Queueable {
         final List<String> tags = new ArrayList<>(2);
         tags.add(existing);
         appendTag(tags, tag);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Event)) {
+            return false;
+        }
+
+        Event e = (Event) o;
+
+        Set<String> thisKeySet = data.keySet();
+        Set<String> thatKeySet = e.data.keySet();
+        boolean isEqual = thisKeySet.size() == thatKeySet.size();
+        Iterator<String> keyIterator = thisKeySet.iterator();
+        while (isEqual && keyIterator.hasNext()) {
+            String key = keyIterator.next();
+            isEqual = isEqual && thatKeySet.contains(key) && data.get(key).equals(e.data.get(key));
+        }
+
+        thisKeySet = metadata.keySet();
+        thatKeySet = e.metadata.keySet();
+        isEqual = isEqual && thisKeySet.size() == thatKeySet.size();
+        keyIterator = thisKeySet.iterator();
+        while (isEqual && keyIterator.hasNext()) {
+            String key = keyIterator.next();
+            isEqual = isEqual && thatKeySet.contains(key) && metadata.get(key).equals(e.metadata.get(key));
+        }
+
+        return isEqual;
     }
 
     @Override
