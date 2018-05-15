@@ -40,6 +40,9 @@ import org.logstash.log.LoggerExt;
 import org.logstash.log.SlowLoggerExt;
 import org.logstash.plugins.PluginFactoryExt;
 import org.logstash.plugins.UniversalPluginExt;
+import org.logstash.rocksqueue.JRubyRocksReadClientExt;
+import org.logstash.rocksqueue.JRubyRocksWriteClientExt;
+import org.logstash.rocksqueue.JRubyWrappedRocksQueueExt;
 
 /**
  * Utilities around interaction with the {@link Ruby} runtime.
@@ -71,11 +74,17 @@ public final class RubyUtil {
 
     public static final RubyClass ACKED_READ_CLIENT_CLASS;
 
+    public static final RubyClass ROCKS_READ_CLIENT_CLASS;
+
     public static final RubyClass MEMORY_WRITE_CLIENT_CLASS;
 
     public static final RubyClass ACKED_WRITE_CLIENT_CLASS;
 
+    public static final RubyClass ROCKS_WRITE_CLIENT_CLASS;
+
     public static final RubyClass WRAPPED_SYNCHRONOUS_QUEUE_CLASS;
+
+    public static final RubyClass WRAPPED_ROCKS_QUEUE_CLASS;
 
     public static final RubyClass WRAPPED_ACKED_QUEUE_CLASS;
 
@@ -330,13 +339,19 @@ public final class RubyUtil {
             setupLogstashClass(QUEUE_READ_CLIENT_BASE_CLASS, JrubyMemoryReadClientExt::new, JrubyMemoryReadClientExt.class);
         ACKED_READ_CLIENT_CLASS =
             setupLogstashClass(QUEUE_READ_CLIENT_BASE_CLASS, JrubyAckedReadClientExt::new, JrubyAckedReadClientExt.class);
+        ROCKS_READ_CLIENT_CLASS =
+            setupLogstashClass(QUEUE_READ_CLIENT_BASE_CLASS, JRubyRocksReadClientExt::new, JRubyRocksReadClientExt.class);
         MEMORY_WRITE_CLIENT_CLASS =
             setupLogstashClass(JrubyMemoryWriteClientExt::new, JrubyMemoryWriteClientExt.class);
         ACKED_WRITE_CLIENT_CLASS =
             setupLogstashClass(JrubyAckedWriteClientExt::new, JrubyAckedWriteClientExt.class);
+        ROCKS_WRITE_CLIENT_CLASS =
+            setupLogstashClass(JRubyRocksWriteClientExt::new, JRubyRocksWriteClientExt.class);
         WRAPPED_SYNCHRONOUS_QUEUE_CLASS =
             setupLogstashClass(JrubyWrappedSynchronousQueueExt::new,
                 JrubyWrappedSynchronousQueueExt.class);
+        WRAPPED_ROCKS_QUEUE_CLASS = setupLogstashClass(JRubyWrappedRocksQueueExt::new,
+            JRubyWrappedRocksQueueExt.class);
         WRAPPED_ACKED_QUEUE_CLASS = setupLogstashClass(JRubyWrappedAckedQueueExt::new,
             JRubyWrappedAckedQueueExt.class);
         ACKED_QUEUE_CLASS = setupLogstashClass(JRubyAckedQueueExt::new, JRubyAckedQueueExt.class);

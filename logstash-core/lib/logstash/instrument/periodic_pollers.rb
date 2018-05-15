@@ -16,6 +16,7 @@ module LogStash module Instrument
       @periodic_pollers = [PeriodicPoller::Os.new(metric),
                            PeriodicPoller::JVM.new(metric),
                            PeriodicPoller::PersistentQueue.new(metric, queue_type, pipelines),
+                           #PeriodicPoller::RocksQueue.new(),
                            PeriodicPoller::DeadLetterQueue.new(metric, pipelines)]
     end
 

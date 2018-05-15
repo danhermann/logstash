@@ -19,8 +19,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.logstash.LengthPrefixedEventSerializer.LongSerializer.LONG_WIDTH;
-import static org.logstash.LengthPrefixedEventSerializer.LongSerializer.longFromBytes;
-import static org.logstash.LengthPrefixedEventSerializer.LongSerializer.longToBytes;
+import static org.logstash.common.ByteUtils.intFromBytes;
+import static org.logstash.common.ByteUtils.intToBytes;
+import static org.logstash.common.ByteUtils.longFromBytes;
+import static org.logstash.common.ByteUtils.longToBytes;
 
 public final class LengthPrefixedEventSerializer {
 
@@ -161,7 +163,7 @@ public final class LengthPrefixedEventSerializer {
             }
 
             // get map size as 32-bit integer
-            int size = IntegerSerializer.intFromBytes(bytes, pos + 1);
+            int size = intFromBytes(bytes, pos + 1);
 
             Map map = new HashMap();
             DeserializationResult keyResult, valueResult = new DeserializationResult(null, pos + 5);
@@ -177,7 +179,7 @@ public final class LengthPrefixedEventSerializer {
         static void serialize(Map<?,?> map, ByteArrayOutputStream bos) {
             try {
                 bos.write(TYPE_TO_BYTE.get(Map.class));
-                bos.write(IntegerSerializer.intToBytes(map.size()));
+                bos.write(intToBytes(map.size()));
                 for (Map.Entry entry : map.entrySet()) {
                     LengthPrefixedEventSerializer.serialize(entry.getKey(), bos);
                     LengthPrefixedEventSerializer.serialize(entry.getValue(), bos);
@@ -200,7 +202,7 @@ public final class LengthPrefixedEventSerializer {
             }
 
             // get string length as 32-bit integer
-            int length = IntegerSerializer.intFromBytes(bytes, pos + 1);
+            int length = intFromBytes(bytes, pos + 1);
 
             if ((pos + length + 5) > bytes.length) {
                 throw new IllegalStateException(
@@ -222,7 +224,7 @@ public final class LengthPrefixedEventSerializer {
             try {
                 bos.write(TYPE_TO_BYTE.get(RubyString.class));
                 byte[] bytes = s.asJavaString().getBytes("UTF-8");
-                bos.write(IntegerSerializer.intToBytes(bytes.length));
+                bos.write(intToBytes(bytes.length));
                 bos.write(bytes);
             } catch (UnsupportedEncodingException e) {
                 throw new IllegalStateException("Unable to serialize Ruby string", e);
@@ -246,7 +248,7 @@ public final class LengthPrefixedEventSerializer {
             }
 
             // get string length as 32-bit integer
-            int length = IntegerSerializer.intFromBytes(bytes, pos + 1);
+            int length = intFromBytes(bytes, pos + 1);
 
             if ((pos + length + 5) > bytes.length) {
                 throw new IllegalStateException(
@@ -266,7 +268,7 @@ public final class LengthPrefixedEventSerializer {
             try {
                 bos.write(TYPE_TO_BYTE.get(String.class));
                 byte[] bytes = s.getBytes("UTF-8");
-                bos.write(IntegerSerializer.intToBytes(bytes.length));
+                bos.write(intToBytes(bytes.length));
                 bos.write(bytes);
             } catch (UnsupportedEncodingException e) {
                 throw new IllegalStateException("Unable to serialize string", e);
@@ -308,29 +310,6 @@ public final class LengthPrefixedEventSerializer {
                 // ByteArrayOutputStream never throws IOException
             }
         }
-
-        static long longFromBytes(byte[] bytes, int offset) {
-            return (long) ((bytes[offset] & 0xFF)) << 56 |
-                    (long) ((bytes[offset + 1] & 0xFF)) << 48 |
-                    (long) ((bytes[offset + 2] & 0xFF)) << 40 |
-                    (long) ((bytes[offset + 3] & 0xFF)) << 32 |
-                    (long) ((bytes[offset + 4] & 0xFF)) << 24 |
-                    (long) ((bytes[offset + 5] & 0xFF)) << 16 |
-                    (long) ((bytes[offset + 6] & 0xFF)) << 8 |
-                    (long) (bytes[offset + 7] & 0xFF);
-        }
-
-        static byte[] longToBytes(long longVal) {
-            return new byte[]{
-                    (byte) (longVal >>> 56),
-                    (byte) (longVal >>> 48),
-                    (byte) (longVal >>> 40),
-                    (byte) (longVal >>> 32),
-                    (byte) (longVal >>> 24),
-                    (byte) (longVal >>> 16),
-                    (byte) (longVal >>> 8),
-                    (byte) longVal};
-        }
     }
 
     static class IntegerSerializer {
@@ -364,21 +343,6 @@ public final class LengthPrefixedEventSerializer {
             }
         }
 
-        static byte[] intToBytes(int intVal) {
-            return new byte[]{
-                    (byte) (intVal >>> 24),
-                    (byte) (intVal >>> 16),
-                    (byte) (intVal >>> 8),
-                    (byte) intVal
-            };
-        }
-
-        static int intFromBytes(byte[] bytes, int offset) {
-            return ((bytes[offset] & 0xFF)) << 24 |
-                    ((bytes[offset + 1] & 0xFF)) << 16 |
-                    ((bytes[offset + 2] & 0xFF)) << 8 |
-                    (bytes[offset + 3] & 0xFF);
-        }
     }
 
     static class TimestampSerializer {

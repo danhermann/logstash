@@ -16,6 +16,9 @@ module LogStash
       queue_path = ::File.join(settings.get("path.queue"), settings.get("pipeline.id"))
 
       case queue_type
+      when "rocksqueue"
+        # RocksDB queue
+        LogStash::WrappedRocksQueue.new(settings.get("pipeline.id"), queue_path, settings.get("pipeline.batch.size"), settings.get("pipeline.workers"))
       when "persisted"
         # persisted is the disk based acked queue
         FileUtils.mkdir_p(queue_path)

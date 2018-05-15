@@ -544,6 +544,11 @@ module LogStash; class JavaPipeline < JavaBasePipeline
 
       pipeline_metric.gauge(:events, queue.unread_count)
     end
+
+    # TODO: the collection of queue-specific stats should be deferred completely to the queues themselves
+    if @queue.is_a?(LogStash::WrappedRocksQueue)
+      #@queue.collect_stats(pipeline_metric)
+    end
   end
 
   def clear_pipeline_metrics

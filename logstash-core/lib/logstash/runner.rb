@@ -353,7 +353,7 @@ class LogStash::Runner < Clamp::StrictCommand
     sigint_id = trap_sigint()
     sigterm_id = trap_sigterm()
 
-    logger.info("Starting Logstash", "logstash.version" => LOGSTASH_VERSION)
+    logger.info("Starting Logstash", "logstash.version" => LOGSTASH_VERSION, "logstash.pid" => Process.pid)
 
     @agent_task = Stud::Task.new { @agent.execute }
 

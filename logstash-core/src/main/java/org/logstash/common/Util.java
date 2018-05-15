@@ -3,6 +3,7 @@ package org.logstash.common;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by andrewvc on 12/23/16.
@@ -34,5 +35,9 @@ public class Util {
         }
 
         return hexString.toString();
+    }
+
+    public static double nanosToMillis(double nanos) {
+        return nanos / 1e6;
     }
 }
