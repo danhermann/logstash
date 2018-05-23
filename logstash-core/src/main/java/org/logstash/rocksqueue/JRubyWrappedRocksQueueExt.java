@@ -26,18 +26,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @JRubyClass(name = "WrappedRocksQueue")
 public class JRubyWrappedRocksQueueExt extends RubyObject {
 
-    private RocksQueue queue;
+    private ExperimentalQueue queue;
     private final AtomicBoolean isClosed = new AtomicBoolean();
 
     @JRubyMethod(name = "initialize", required = 4)
     public IRubyObject rubyInitialize(ThreadContext context, IRubyObject[] args) throws IOException {
-                                      //IRubyObject pipelineId, IRubyObject dirPath, IRubyObject batchSize, IRubyObject workers) throws IOException {
         RubyString pipelineId = (RubyString) args[0];
         RubyString dirPath = (RubyString) args[1];
         RubyFixnum batchSize = (RubyFixnum) args[2];
         RubyFixnum workers = (RubyFixnum) args[3];
 
-        queue = new RocksQueue(pipelineId.asJavaString(), dirPath.asJavaString(), batchSize.getIntValue(), workers.getIntValue());
+        queue = new PartitionedRocksQueue(pipelineId.asJavaString(), dirPath.asJavaString(), batchSize.getIntValue(), workers.getIntValue());
         queue.open();
 
         return context.nil;

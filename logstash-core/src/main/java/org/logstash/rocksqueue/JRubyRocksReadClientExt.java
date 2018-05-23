@@ -13,9 +13,9 @@ import java.io.IOException;
 @JRubyClass(name = "AckedReadClient", parent = "QueueReadClientBase")
 public class JRubyRocksReadClientExt extends QueueReadClientBase implements QueueReadClient {
 
-    private final RocksQueue queue;
+    private final ExperimentalQueue queue;
 
-    public static JRubyRocksReadClientExt create(final RocksQueue queue) {
+    public static JRubyRocksReadClientExt create(final ExperimentalQueue queue) {
         return new JRubyRocksReadClientExt(RubyUtil.RUBY, RubyUtil.ROCKS_READ_CLIENT_CLASS, queue);
     }
 
@@ -25,7 +25,7 @@ public class JRubyRocksReadClientExt extends QueueReadClientBase implements Queu
     }
 
     private JRubyRocksReadClientExt(final Ruby runtime, final RubyClass metaClass,
-                                    final RocksQueue queue) {
+                                    final ExperimentalQueue queue) {
         super(runtime, metaClass);
         this.queue = queue;
     }

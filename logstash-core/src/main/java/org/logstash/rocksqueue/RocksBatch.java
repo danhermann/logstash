@@ -15,12 +15,12 @@ import static org.logstash.RubyUtil.RUBY;
 
 public class RocksBatch implements QueueBatch, Closeable {
 
-    private final RocksQueue queue;
+    private final ExperimentalQueue queue;
 
     // a batch must contain all events between minSequenceId and maxSequenceId
-    private List<RocksQueue.EventSequencePair> events;
+    private List<EventSequencePair> events;
 
-    public RocksBatch(final RocksQueue queue, int batchSize) {
+    public RocksBatch(final ExperimentalQueue queue, int batchSize) {
         this.queue = queue;
         this.events = new ArrayList<>(batchSize);
     }
@@ -34,7 +34,7 @@ public class RocksBatch implements QueueBatch, Closeable {
     public RubyArray to_a() {
         ThreadContext context = RUBY.getCurrentContext();
         final RubyArray result = context.runtime.newArray(events.size());
-        for (final RocksQueue.EventSequencePair esp : events) {
+        for (final EventSequencePair esp : events) {
             if (!esp.event.isCancelled()) {
                 result.add(JrubyEventExtLibrary.RubyEvent.newRubyEvent(context.runtime, esp.event));
             }
@@ -52,7 +52,7 @@ public class RocksBatch implements QueueBatch, Closeable {
         queue.closeBatch(this);
     }
 
-    void add(RocksQueue.EventSequencePair pair) {
+    void add(EventSequencePair pair) {
         events.add(pair);
     }
 

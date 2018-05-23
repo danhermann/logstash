@@ -4,8 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.logstash.Event;
-import org.logstash.LengthPrefixedEventSerializer;
 import org.logstash.ext.JrubyEventExtLibrary;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
 import org.rocksdb.Options;
@@ -13,14 +14,14 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Statistics;
-import org.rocksdb.WriteBatch;
-import org.rocksdb.WriteOptions;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -29,19 +30,25 @@ import static org.logstash.common.ByteUtils.longFromBytes;
 import static org.logstash.common.ByteUtils.longToBytes;
 import static org.logstash.common.Util.nanosToMillis;
 
-public class RocksQueue implements Closeable {
+public class PartitionedRocksQueue extends ExperimentalQueue implements Closeable {
 
-    private static final Logger logger = LogManager.getLogger(RocksQueue.class);
+    private static final Logger logger = LogManager.getLogger(PartitionedRocksQueue.class);
     private static final int HIGH_WATERMARK = 0;
     private static final int LOW_WATERMARK = 0;
     private static final int EVENT_CACHE_SIZE_FACTOR = 5;
+    private static final int EVENTS_PER_PARTITION = 1_000_000;
+    private static byte[] MANIFEST;
 
     private String dirPath;
     private String pipelineId;
-    private Options options;
+    private Options partitionOptions;
+    private Options manifestOptions;
+    private ColumnFamilyOptions partitionCfOptions;
+    private ColumnFamilyOptions manifestCfOptions;
     private RocksDB rocksDb;
     private Statistics statistics;
     private AtomicLong maxSequenceId;
+    private AtomicLong partitionId;
     private AtomicBoolean isClosed;
     //private LengthPrefixedEventSerializer serializer;
 
@@ -56,41 +63,105 @@ public class RocksQueue implements Closeable {
     private ArrayDeque<EventSequencePair> eventCache; // all ops are O(1) and we don't need thread safety
     private int eventCacheSize;
     private ReentrantLock eventCacheLock = new ReentrantLock();
+    private boolean runStatsThread = true;
 
-    RocksQueue(String pipelineId, String dirPath, int batchSize, int pipelineWorkers) {
+    static {
+        try {
+            MANIFEST = "manifest".getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            // will never throw for the above statement
+        }
+    }
+
+    PartitionedRocksQueue(String pipelineId, String dirPath, int batchSize, int pipelineWorkers) {
         this.dirPath = dirPath;
         this.pipelineId = pipelineId;
         eventCacheSize = batchSize * pipelineWorkers * EVENT_CACHE_SIZE_FACTOR;
         eventCache = new ArrayDeque<>(eventCacheSize);
         //serializer = new LengthPrefixedEventSerializer();
         maxSequenceId = new AtomicLong();
+        partitionId = new AtomicLong();
         isClosed = new AtomicBoolean(false);
+        Thread statsThread = new Thread(() -> {
+            while (runStatsThread) {
+                logStats();
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    // do nothing
+                }
+            }
+        });
+        //statsThread.start();
     }
 
-    public void open() throws IOException {
+    public void open() {
 
         RocksDB.loadLibrary();
 
         statistics = new Statistics();
-        options = new Options()
-                .setArenaBlockSize(64 * 1024)
-                .setUseDirectIoForFlushAndCompaction(true)
-                .setCompressionType(CompressionType.LZ4_COMPRESSION)
+
+        partitionCfOptions = new ColumnFamilyOptions()
                 .setCompactionStyle(CompactionStyle.LEVEL)
-                .setCreateIfMissing(true)
-                .setStatistics(statistics);
+                .setDisableAutoCompactions(true)
+                .setCompressionType(CompressionType.LZ4_COMPRESSION);
+
+        manifestCfOptions = new ColumnFamilyOptions()
+                .setCompactionStyle(CompactionStyle.LEVEL)
+                .setDisableAutoCompactions(false)
+                .setCompressionType(CompressionType.LZ4_COMPRESSION);
+
+
+        partitionOptions = new Options()
+                //.setArenaBlockSize(64 * 1024)
+                .setUseDirectIoForFlushAndCompaction(true)
+                .setCompressionType(partitionCfOptions.compressionType())
+                .setCompactionStyle(partitionCfOptions.compactionStyle())
+                //.optimizeLevelStyleCompaction(1024*1024*100) // no significant effects
+                //.setIncreaseParallelism(4)
+                //.setNumLevels(1)
+                .setStatistics(statistics)
+                .setDisableAutoCompactions(partitionCfOptions.disableAutoCompactions())
+                //.setStatsDumpPeriodSec(3)
+                .setCreateIfMissing(true);
+
+        // use copy constructor in newer release
+        manifestOptions = new Options()
+                //.setArenaBlockSize(partitionOptions.arenaBlockSize())
+                .setUseDirectIoForFlushAndCompaction(partitionOptions.useDirectIoForFlushAndCompaction())
+                .setCompressionType(manifestCfOptions.compressionType())
+                .setCompactionStyle(manifestCfOptions.compactionStyle())
+                //.optimizeLevelStyleCompaction(1024*1024*100) // no significant effects
+                //.setIncreaseParallelism(4)
+                //.setNumLevels(partitionOptions.numLevels())
+                .setStatistics(statistics)
+                .setDisableAutoCompactions(manifestCfOptions.disableAutoCompactions()) // override this one
+                //.setStatsDumpPeriodSec(partitionOptions.statsDumpPeriodSec())
+                .setCreateIfMissing(partitionOptions.createIfMissing());
+
+        List<ColumnFamilyDescriptor> initialColumnFamilies = Arrays.asList(
+                new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, partitionCfOptions),
+                new ColumnFamilyDescriptor(MANIFEST, manifestCfOptions)
+        );
+
 
         RocksIterator iterator = null;
+
         try {
-System.out.println("Initializing RocksDB queue");
-            rocksDb = RocksDB.open(options, dirPath);
-System.out.println("Opened RocksDB queue");
+
+logger.info("Initializing RocksDB queue");
+            rocksDb = RocksDB.open(partitionOptions, dirPath);
+logger.info("Opened RocksDB queue");
+
+            ColumnFamilyDescriptor d;
+
+rocksDb.createColumnFamily(null);
             iterator = rocksDb.newIterator();
-System.out.println("Opened iterator");
+logger.info("Opened iterator");
 
             // read up to eventCache.size() records
             iterator.seekToFirst();
-System.out.println("Seeked to first record");
+logger.info("Seeked to first record");
             int recordCount = 0;
             while (iterator.isValid() && recordCount < eventCacheSize) {
                 eventCache.add(new EventSequencePair(
@@ -100,7 +171,7 @@ System.out.println("Seeked to first record");
                 iterator.next();
             }
 
-System.out.println("Reads existing records: "+recordCount);
+logger.info("Read existing records: "+recordCount);
 
             // find max sequence ID
             if (recordCount > 0) {
@@ -110,9 +181,19 @@ System.out.println("Reads existing records: "+recordCount);
                 maxSequenceId.set(0);
             }
 
+            List<byte[]> columnFamilies = RocksDB.listColumnFamilies(partitionOptions, dirPath);
+            for (byte[] columnFamily:columnFamilies) {
+                System.out.println(new String(columnFamily, "UTF-8"));
+            }
 
-System.out.println("Found max seq id: "+maxSequenceId.get());
+//System.exit(1);
 
+
+            logger.info("Found max seq id: "+maxSequenceId.get());
+
+        } catch (IOException e) {
+            // do some error handling
+            throw new IllegalStateException(e);
         } catch (RocksDBException e) {
             // do some error handling
             throw new IllegalStateException(e);
@@ -131,7 +212,6 @@ System.out.println("Found max seq id: "+maxSequenceId.get());
         try {
             startTime = System.nanoTime();
             rocksDb.put(longToBytes(seqId), event.serialize());
-            //rocksDb.put(longToBytes(seqId), serializer.serialize(event));
             endTime = System.nanoTime();
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
@@ -151,7 +231,7 @@ System.out.println("Found max seq id: "+maxSequenceId.get());
 
     void enqueueBatch(Collection<JrubyEventExtLibrary.RubyEvent> events) {
 
-        throw new UnsupportedOperationException("most (all?) inputs enqueue single events so the PoC doesn't need this implementation");
+        throw new UnsupportedOperationException("not implemented in the PoC");
         /*
         long highestBatchSeqId = maxSequenceId.addAndGet(events.size());
 
@@ -159,7 +239,7 @@ System.out.println("Found max seq id: "+maxSequenceId.get());
         JrubyEventExtLibrary.RubyEvent event;
         try (
                 WriteBatch batch = new WriteBatch();
-                WriteOptions options = new WriteOptions()
+                WriteOptions partitionOptions = new WriteOptions()
         ) {
             Iterator<JrubyEventExtLibrary.RubyEvent> iterator = events.iterator();
             int loopCounter = 0;
@@ -167,7 +247,7 @@ System.out.println("Found max seq id: "+maxSequenceId.get());
                 batch.put(longToBytes(highestBatchSeqId - events.size() + loopCounter++),
                         serializer.serialize(event.getEvent()));
             }
-            rocksDb.write(options, batch);
+            rocksDb.write(partitionOptions, batch);
         } catch (RocksDBException e) {
             // handle the error
             throw new IllegalStateException(e);
@@ -220,10 +300,11 @@ System.out.println("Found max seq id: "+maxSequenceId.get());
         }
     }
 
-    void closeBatch(RocksBatch batch) {
+    public void closeBatch(RocksBatch batch) {
         if (batch.filteredSize() == 0) {
             return;
         }
+
 
         try {
             rocksDb.deleteRange(longToBytes(batch.minSequenceId()), longToBytes(batch.maxSequenceId()));
@@ -231,18 +312,19 @@ System.out.println("Found max seq id: "+maxSequenceId.get());
             // handle error
             throw new IllegalStateException(e);
         }
+
     }
 
     @Override
     public void close() {
         if (isClosed.compareAndSet(false, true)) {
-            // print stats for PoC
-            printStats();
+            runStatsThread = false;
+            logStats();
 
             try {
-System.out.println("Starting compaction");
+logger.info("Starting compaction");
                 rocksDb.compactRange();
-System.out.println("Finished compaction");
+logger.info("Finished compaction");
             } catch (RocksDBException e) {
                 logger.error(String.format("Error compacting RocksDB queue '%s'", pipelineId), e);
 
@@ -250,10 +332,11 @@ System.out.println("Finished compaction");
 
             if (statistics != null) {
                 statistics.close();
+                statistics = null;
             }
 
-            if (options != null) {
-                options.close();
+            if (partitionOptions != null) {
+                partitionOptions.close();
             }
 
             if (rocksDb != null) {
@@ -262,21 +345,25 @@ System.out.println("Finished compaction");
         }
     }
 
-    private void printStats() {
-        System.out.println(String.format("Compaction style     : %s", options.compactionStyle()));
-        System.out.println(String.format("Compression type     : %s", options.compressionType()));
-        System.out.println(String.format("Block size           : %d", options.arenaBlockSize()));
-        System.out.println(String.format("Direct IO            : %s", options.useDirectIoForFlushAndCompaction()));
+    private void logStats() {
+        if (partitionOptions != null) {
+            logger.info(String.format("Compaction style     : %s", partitionOptions.compactionStyle()));
+            logger.info(String.format("Compression type     : %s", partitionOptions.compressionType()));
+            logger.info(String.format("Block size           : %d", partitionOptions.arenaBlockSize()));
+            logger.info(String.format("Direct IO            : %s", partitionOptions.useDirectIoForFlushAndCompaction()));
+        }
 
-        System.out.println(String.format("Enqueue count        : %d", enqueueCount));
-        System.out.println(String.format("Enqueue agg duration : %g", nanosToMillis(enqueueTotalTime)));
-        System.out.println(String.format("Enqueue min duration : %g", nanosToMillis(enqueueMinTime)));
-        System.out.println(String.format("Enqueue max duration : %g", nanosToMillis(enqueueMaxTime)));
-        System.out.println(String.format("Enqueue avg duration : %g", nanosToMillis(enqueueTotalTime / (double)enqueueCount)));
+        logger.info(String.format("Enqueue count        : %d", enqueueCount));
+        logger.info(String.format("Enqueue agg duration : %g", nanosToMillis(enqueueTotalTime)));
+        logger.info(String.format("Enqueue min duration : %g", nanosToMillis(enqueueMinTime)));
+        logger.info(String.format("Enqueue max duration : %g", nanosToMillis(enqueueMaxTime)));
+        logger.info(String.format("Enqueue avg duration : %g", nanosToMillis(enqueueTotalTime / (double)enqueueCount)));
 
-        System.out.println(String.format("ReadBatch count      : %d", readBatchCount));
+        logger.info(String.format("ReadBatch count      : %d", readBatchCount));
 
-        System.out.println(String.format("RocksDB statistics   : %s", statistics));
+        if (statistics != null) {
+            logger.info(String.format("RocksDB statistics   : %s", statistics));
+        }
     }
 
     private void recordEnqueueStats(long startTime, long endTime) {
@@ -295,13 +382,4 @@ System.out.println("Finished compaction");
         readBatchCount++;
     }
 
-    class EventSequencePair {
-        Event event;
-        long seqNum;
-
-        EventSequencePair(Event e, long seqNum) {
-            this.event = e;
-            this.seqNum = seqNum;
-        }
-    }
 }

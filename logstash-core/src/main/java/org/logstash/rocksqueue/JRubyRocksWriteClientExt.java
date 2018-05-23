@@ -14,19 +14,19 @@ import java.util.Collection;
 
 @JRubyClass(name = "RocksWriteClient")
 public class JRubyRocksWriteClientExt extends RubyObject {
-    private RocksQueue queue;
+    private ExperimentalQueue queue;
 
     public JRubyRocksWriteClientExt(final Ruby runtime, final RubyClass metaClass) {
         super(runtime, metaClass);
     }
 
     private JRubyRocksWriteClientExt(final Ruby runtime, final RubyClass metaClass,
-                                     final RocksQueue queue) {
+                                     final ExperimentalQueue queue) {
         super(runtime, metaClass);
         this.queue = queue;
     }
 
-    public static JRubyRocksWriteClientExt create(RocksQueue queue) {
+    public static JRubyRocksWriteClientExt create(ExperimentalQueue queue) {
         return new JRubyRocksWriteClientExt(
                 RubyUtil.RUBY, RubyUtil.ROCKS_WRITE_CLIENT_CLASS, queue);
     }
