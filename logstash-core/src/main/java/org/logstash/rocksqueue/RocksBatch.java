@@ -18,7 +18,7 @@ public class RocksBatch implements QueueBatch, Closeable {
     private final ExperimentalQueue queue;
 
     // a batch must contain all events between minSequenceId and maxSequenceId
-    private List<EventSequencePair> events;
+    List<EventSequencePair> events;
 
     public RocksBatch(final ExperimentalQueue queue, int batchSize) {
         this.queue = queue;

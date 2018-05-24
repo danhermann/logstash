@@ -36,7 +36,8 @@ public class JRubyWrappedRocksQueueExt extends RubyObject {
         RubyFixnum batchSize = (RubyFixnum) args[2];
         RubyFixnum workers = (RubyFixnum) args[3];
 
-        queue = new PartitionedRocksQueue(pipelineId.asJavaString(), dirPath.asJavaString(), batchSize.getIntValue(), workers.getIntValue());
+        //queue = new PartitionedRocksQueue(pipelineId.asJavaString(), dirPath.asJavaString(), batchSize.getIntValue(), workers.getIntValue());
+        queue = new SingleTableRocksQueue(pipelineId.asJavaString(), dirPath.asJavaString(), batchSize.getIntValue(), workers.getIntValue());
         queue.open();
 
         return context.nil;

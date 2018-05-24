@@ -12,6 +12,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Statistics;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -83,8 +85,8 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
         options = new Options()
                 .setArenaBlockSize(64 * 1024)
                 .setUseDirectIoForFlushAndCompaction(true)
-                //.setCompressionType(CompressionType.LZ4_COMPRESSION)
-                .setCompressionType(CompressionType.NO_COMPRESSION)
+                .setCompressionType(CompressionType.LZ4_COMPRESSION)
+                //.setCompressionType(CompressionType.NO_COMPRESSION)
                 .setCompactionStyle(CompactionStyle.LEVEL)
                 //.setNumLevels(0)
                 .setStatistics(statistics)
@@ -245,7 +247,12 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
 
 
         try {
-            rocksDb.deleteRange(longToBytes(batch.minSequenceId()), longToBytes(batch.maxSequenceId()));
+            //rocksDb.deleteRange(longToBytes(batch.minSequenceId()), longToBytes(batch.maxSequenceId()));
+            WriteBatch writeBatch = new WriteBatch();
+            for (EventSequencePair e : batch.events) {
+                writeBatch.singleDelete(longToBytes(e.seqNum));
+            }
+            rocksDb.write(new WriteOptions(), writeBatch);
         } catch (RocksDBException e) {
             // handle error
             throw new IllegalStateException(e);

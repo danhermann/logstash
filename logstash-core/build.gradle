@@ -110,9 +110,9 @@ idea {
 }
 
 dependencies {
-    //compile 'org.rocksdb:rocksdbjni:5.11.3'
+    compile 'org.rocksdb:rocksdbjni:5.11.3'
+    //compile files('/home/dan/dev/rq/localjars/rocksdbjni-5.11.4-linux64.jar')
     compile 'org.xerial:sqlite-jdbc:3.21.0.1'
-    compile files('/home/dan/dev/rq/localjars/rocksdbjni-5.11.4-linux64.jar')
     compile 'org.apache.logging.log4j:log4j-api:2.9.1'
     compile 'org.apache.logging.log4j:log4j-core:2.9.1'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'

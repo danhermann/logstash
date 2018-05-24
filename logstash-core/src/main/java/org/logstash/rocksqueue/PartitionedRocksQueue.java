@@ -6,22 +6,28 @@ import org.apache.logging.log4j.Logger;
 import org.logstash.Event;
 import org.logstash.ext.JrubyEventExtLibrary;
 import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
+import org.rocksdb.DBOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Statistics;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -64,6 +70,11 @@ public class PartitionedRocksQueue extends ExperimentalQueue implements Closeabl
     private int eventCacheSize;
     private ReentrantLock eventCacheLock = new ReentrantLock();
     private boolean runStatsThread = true;
+    private List<ColumnFamilyHandle> columnFamilyHandles;
+    private ConcurrentHashMap<Long, ColumnFamilyHandle> cfHandles;
+    private ColumnFamilyHandle manifestHandle;
+    private WriteOptions partitionWriteOptions;
+    private AtomicLong cfDropCount = new AtomicLong(0);
 
     static {
         try {
@@ -92,13 +103,15 @@ public class PartitionedRocksQueue extends ExperimentalQueue implements Closeabl
                 }
             }
         });
-        //statsThread.start();
+        statsThread.start();
+        cfHandles = new ConcurrentHashMap<>();
     }
 
     public void open() {
 
         RocksDB.loadLibrary();
 
+        partitionWriteOptions = new WriteOptions();
         statistics = new Statistics();
 
         partitionCfOptions = new ColumnFamilyOptions()
@@ -109,8 +122,8 @@ public class PartitionedRocksQueue extends ExperimentalQueue implements Closeabl
         manifestCfOptions = new ColumnFamilyOptions()
                 .setCompactionStyle(CompactionStyle.LEVEL)
                 .setDisableAutoCompactions(false)
+                //.setInplaceUpdateSupport(true)
                 .setCompressionType(CompressionType.LZ4_COMPRESSION);
-
 
         partitionOptions = new Options()
                 //.setArenaBlockSize(64 * 1024)
@@ -123,7 +136,8 @@ public class PartitionedRocksQueue extends ExperimentalQueue implements Closeabl
                 .setStatistics(statistics)
                 .setDisableAutoCompactions(partitionCfOptions.disableAutoCompactions())
                 //.setStatsDumpPeriodSec(3)
-                .setCreateIfMissing(true);
+                .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true);
 
         // use copy constructor in newer release
         manifestOptions = new Options()
@@ -137,24 +151,46 @@ public class PartitionedRocksQueue extends ExperimentalQueue implements Closeabl
                 .setStatistics(statistics)
                 .setDisableAutoCompactions(manifestCfOptions.disableAutoCompactions()) // override this one
                 //.setStatsDumpPeriodSec(partitionOptions.statsDumpPeriodSec())
-                .setCreateIfMissing(partitionOptions.createIfMissing());
+                .setCreateIfMissing(partitionOptions.createIfMissing())
+                .setCreateMissingColumnFamilies(partitionOptions.createMissingColumnFamilies());
+
+        DBOptions dbOptions = new DBOptions()
+                .setUseDirectIoForFlushAndCompaction(true)
+                .setStatistics(statistics)
+                .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true);
 
         List<ColumnFamilyDescriptor> initialColumnFamilies = Arrays.asList(
                 new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, partitionCfOptions),
-                new ColumnFamilyDescriptor(MANIFEST, manifestCfOptions)
+                new ColumnFamilyDescriptor(MANIFEST, manifestCfOptions),
+                new ColumnFamilyDescriptor("pipeline_0".getBytes(), partitionCfOptions)
         );
 
-
         RocksIterator iterator = null;
-
+        columnFamilyHandles = new ArrayList<>();
         try {
 
 logger.info("Initializing RocksDB queue");
-            rocksDb = RocksDB.open(partitionOptions, dirPath);
+            rocksDb = RocksDB.open(dbOptions, dirPath, initialColumnFamilies, columnFamilyHandles);
 logger.info("Opened RocksDB queue");
 
-            ColumnFamilyDescriptor d;
+            List<byte[]> columnFamilies = RocksDB.listColumnFamilies(partitionOptions, dirPath);
+            for (byte[] columnFamily:columnFamilies) {
+                System.out.println(new String(columnFamily, "UTF-8"));
+            }
 
+            for (ColumnFamilyHandle cfh : columnFamilyHandles) {
+                if (Arrays.equals(cfh.getName(), MANIFEST)) {
+                    manifestHandle = cfh;
+                }
+                if (Arrays.equals("pipeline_0".getBytes(), cfh.getName())) {
+                    cfHandles.put(0L, cfh);
+                }
+            }
+
+logger.info("Found "+columnFamilies.size()+" column families in RocksDB");
+
+/*
 rocksDb.createColumnFamily(null);
             iterator = rocksDb.newIterator();
 logger.info("Opened iterator");
@@ -180,14 +216,9 @@ logger.info("Read existing records: "+recordCount);
             } else {
                 maxSequenceId.set(0);
             }
-
-            List<byte[]> columnFamilies = RocksDB.listColumnFamilies(partitionOptions, dirPath);
-            for (byte[] columnFamily:columnFamilies) {
-                System.out.println(new String(columnFamily, "UTF-8"));
-            }
-
-//System.exit(1);
-
+*/
+            maxSequenceId.set(0);
+            partitionId.set(0);
 
             logger.info("Found max seq id: "+maxSequenceId.get());
 
@@ -206,16 +237,34 @@ logger.info("Read existing records: "+recordCount);
 
     void enqueue(Event event) {
         long seqId = maxSequenceId.addAndGet(1);
+        long partition = partitionId.get();
+
+        ColumnFamilyHandle cfh;
+        if (seqId > EVENTS_PER_PARTITION) {
+            try {
+                partition = partitionId.incrementAndGet();
+                cfh = rocksDb.createColumnFamily(new ColumnFamilyDescriptor(("pipeline_" + partition).getBytes(), partitionCfOptions));
+                cfHandles.put(partition, cfh);
+                seqId = 1;
+                maxSequenceId.set(1);
+            } catch (RocksDBException e) {
+                throw new IllegalStateException(e);
+            }
+        } else {
+            cfh = cfHandles.get(partition);
+        }
 
         long startTime, endTime;
         // write to rocks
-        try {
+        try (WriteBatch batch = new WriteBatch()) {
             startTime = System.nanoTime();
-            rocksDb.put(longToBytes(seqId), event.serialize());
+            batch.put(cfh, longToBytes(seqId), event.serialize());
+            batch.put(manifestHandle, longToBytes(0), longToBytes(seqId));
+            rocksDb.write(partitionWriteOptions, batch);
             endTime = System.nanoTime();
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
         } catch (RocksDBException e) {
+            throw new IllegalStateException(e);
+        } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }
 
@@ -305,18 +354,34 @@ logger.info("Read existing records: "+recordCount);
             return;
         }
 
+        long partition = partitionId.get();
+        ColumnFamilyHandle cfh = cfHandles.get(partition - 2);
+        if (cfh != null) {
+            try {
+                rocksDb.dropColumnFamily(cfh);
+                cfHandles.remove(partition - 2);
+                cfDropCount.incrementAndGet();
+            } catch (RocksDBException e) {
+                throw new IllegalStateException(e);
+            }
+        }
 
+
+        /*
         try {
             rocksDb.deleteRange(longToBytes(batch.minSequenceId()), longToBytes(batch.maxSequenceId()));
         } catch (RocksDBException e) {
             // handle error
             throw new IllegalStateException(e);
         }
+        */
 
     }
 
     @Override
     public void close() {
+        logStats();
+        /*
         if (isClosed.compareAndSet(false, true)) {
             runStatsThread = false;
             logStats();
@@ -343,6 +408,7 @@ logger.info("Finished compaction");
                 rocksDb.close();
             }
         }
+        */
     }
 
     private void logStats() {
@@ -360,6 +426,8 @@ logger.info("Finished compaction");
         logger.info(String.format("Enqueue avg duration : %g", nanosToMillis(enqueueTotalTime / (double)enqueueCount)));
 
         logger.info(String.format("ReadBatch count      : %d", readBatchCount));
+        logger.info(String.format("Partition count      : %d", partitionId.get()));
+        logger.info(String.format("CF drop count:       : %d", cfDropCount.get()));
 
         if (statistics != null) {
             logger.info(String.format("RocksDB statistics   : %s", statistics));
