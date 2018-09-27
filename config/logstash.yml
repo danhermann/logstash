@@ -127,7 +127,7 @@
 # Internal queuing model, "memory" for legacy in-memory based queuing and
 # "persisted" for disk-based acked queueing. Defaults is memory
 #
-# queue.type: memory
+#queue.type: memory
 queue.type: rocksqueue
 #queue.type: persisted
 #
@@ -153,7 +153,7 @@ queue.type: rocksqueue
 # whichever criteria is reached first
 # Default is 1024mb or 1gb
 #
-# queue.max_bytes: 1024mb
+queue.max_bytes: 128mb
 #
 # If using queue.type: persisted, the maximum number of acked events before forcing a checkpoint
 # Default is 1024, 0 for unlimited

@@ -21,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static org.logstash.common.ByteUtils.longFromBytes;
@@ -29,7 +30,7 @@ import static org.logstash.common.Util.nanosToMillis;
 
 public class SingleTableRocksQueue extends ExperimentalQueue implements Closeable {
 
-    private static final Logger logger = LogManager.getLogger(PartitionedRocksQueue.class);
+    private static final Logger logger = LogManager.getLogger(SingleTableRocksQueue.class);
     private static final int HIGH_WATERMARK = 0;
     private static final int LOW_WATERMARK = 0;
     private static final int EVENT_CACHE_SIZE_FACTOR = 5;
@@ -41,8 +42,11 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
     private Statistics statistics;
     private AtomicLong maxSequenceId;
     private AtomicBoolean isClosed;
+    private AtomicLong queueDepth;
+    private AtomicLong eventCount;
     //private LengthPrefixedEventSerializer serializer;
 
+    private static final int QUEUE_DEPTH_LIMIT = 100000;
 
     private long enqueueCount;
     private long enqueueTotalTime;
@@ -57,6 +61,8 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
     private boolean runStatsThread = true;
 
     SingleTableRocksQueue(String pipelineId, String dirPath, int batchSize, int pipelineWorkers) {
+        this.queueDepth = new AtomicLong(0);
+        this.eventCount = new AtomicLong(0);
         this.dirPath = dirPath;
         this.pipelineId = pipelineId;
         eventCacheSize = batchSize * pipelineWorkers * EVENT_CACHE_SIZE_FACTOR;
@@ -141,7 +147,14 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
     }
 
     void enqueue(Event event) {
+        long qd = queueDepth.get();
+        while (qd > QUEUE_DEPTH_LIMIT) {
+            LockSupport.parkNanos(100000);
+            qd = queueDepth.get();
+        }
         long seqId = maxSequenceId.addAndGet(1);
+        queueDepth.incrementAndGet();
+        eventCount.incrementAndGet();
 
         long startTime, endTime;
         // write to rocks
@@ -244,6 +257,7 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
         if (batch.filteredSize() == 0) {
             return;
         }
+        queueDepth.getAndAdd(-1 * batch.filteredSize());
 
 
         try {
@@ -291,6 +305,10 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
     }
 
     private void logStats() {
+        logger.info(String.format("Queue depth         : %d", queueDepth.get()));
+        logger.info(String.format("Event count         : %d", eventCount.get()));
+
+        /*
         if (options != null) {
             logger.info(String.format("Compaction style     : %s", options.compactionStyle()));
             logger.info(String.format("Compression type     : %s", options.compressionType()));
@@ -309,6 +327,7 @@ public class SingleTableRocksQueue extends ExperimentalQueue implements Closeabl
         if (statistics != null) {
             logger.info(String.format("RocksDB statistics   : %s", statistics));
         }
+        */
     }
 
     private void recordEnqueueStats(long startTime, long endTime) {
