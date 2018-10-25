@@ -13,6 +13,7 @@ import org.jruby.RubyInstanceConfig;
 import org.jruby.RubyNumeric;
 import org.jruby.exceptions.RaiseException;
 import org.jruby.runtime.builtin.IRubyObject;
+import org.logstash.plugins.ingestnode.DanTest;
 
 /**
  * Logstash Main Entrypoint.
@@ -96,6 +97,9 @@ public final class Logstash implements Runnable, AutoCloseable {
                 "More than one JRuby Runtime detected in the current JVM!"
             );
         }
+
+        DanTest.test();
+
         final RubyInstanceConfig config = ruby.getInstanceConfig();
         try (InputStream script = config.getScriptSource()) {
             Thread.currentThread().setContextClassLoader(ruby.getJRubyClassLoader());
