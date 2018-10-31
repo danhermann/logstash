@@ -120,6 +120,7 @@ def customJRubyVersion = customJRubyDir == "" ? "" : Files.readAllLines(Paths.ge
 dependencies {
     compile files('local_libs/elasticsearch-6.4.0.jar')
     compile files('local_libs/elasticsearch-core-6.4.0.jar')
+    compile files('local_libs/elasticsearch-grok-6.4.0.jar')
     compile files('local_libs/elasticsearch-x-content-6.4.0.jar')
     compile files('local_libs/lucene-core-7.4.0.jar')
     compile files('local_libs/ingest-common-6.4.0.jar')
