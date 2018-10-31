@@ -15,6 +15,7 @@ import org.elasticsearch.script.ScriptModule;
 import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.threadpool.ExecutorBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
+import org.logstash.Event;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -27,16 +28,10 @@ import java.util.function.BiFunction;
 
 public class IngestNodeFilter {
 
-    public static void test(String json) {
-
-        try {
-            IngestDocument doc = getIngestDocument();
-            getPipeline(json).execute(doc);
-            System.out.println("========= ingest pipeline succeeded: " + doc.getFieldValue("host", String.class));
-        } catch (Exception e) {
-            System.out.println("Error executing pipeline\n" + e);
-            e.printStackTrace();
-        }
+    public static Event filter(String json, Event e) throws Exception {
+        IngestDocument doc = IngestMarshaller.toDocument(e);
+        getPipeline(json).execute(doc);
+        return IngestMarshaller.toEvent(doc);
     }
 
     private static Pipeline getPipeline(String json) {
@@ -63,8 +58,6 @@ public class IngestNodeFilter {
                 (delay, command) -> threadPool.schedule(TimeValue.timeValueMillis(delay), ThreadPool.Names.GENERIC, command);
         Processor.Parameters parameters = new Processor.Parameters(getEnvironment(), getScriptService(), null, null, null, scheduler);
         return parameters;
-
-
     }
 
     private static Settings getSettings() {
@@ -85,15 +78,5 @@ public class IngestNodeFilter {
         List<ScriptPlugin> scriptPlugins = new ArrayList<>();
         ScriptModule m = new ScriptModule(Settings.EMPTY, scriptPlugins);
         return m.getScriptService();
-    }
-
-    private static IngestDocument getIngestDocument() {
-        Map<String, Object> ingestMetadata = new HashMap<>();
-        ingestMetadata.put("timestamp", ZonedDateTime.now(ZoneOffset.UTC));
-
-        Map<String, Object> sourceAndMetadata = new HashMap<>();
-        sourceAndMetadata.put("hostname", "foo");
-
-        return new IngestDocument(sourceAndMetadata, ingestMetadata);
     }
 }
