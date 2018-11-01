@@ -10,7 +10,6 @@ import org.logstash.RubyUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -112,8 +111,8 @@ public class IngestNodeFilterTest {
         e1.setField("my_field", "08/14/1991 13:45:55");
         Event e2 = IngestNodeFilter.filter(json, e1);
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
-        RubyString expected = RubyString.newString(RubyUtil.RUBY, "1991-08-14T13:45:55.000Z");
-        Assert.assertEquals(expected, e2.getUnconvertedField("my_field2"));
+        String expected = "1991-08-14T13:45:55.000Z";
+        Assert.assertEquals(expected, e2.getField("my_field2"));
     }
 
     @Test
@@ -573,7 +572,6 @@ public class IngestNodeFilterTest {
 
     @Test
     public void testUrlDecodeProcessor() throws Exception {
-
         String json =
 
                 "{" +
@@ -593,6 +591,51 @@ public class IngestNodeFilterTest {
         Event e2 = IngestNodeFilter.filter(json, e1);
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(expectedUrl, e2.getField("my_field2"));
+    }
+
+    @Test
+    public void testMultipleProcessor() throws Exception {
+
+        String json =
+
+                "{" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"set\": {" +
+                        "          \"field\": \"my_field1\"," +
+                        "          \"value\": \"FOO BAR BAZ\"" +
+                        "        }" +
+                        "      }," +
+                        "      {" +
+                        "        \"rename\": {" +
+                        "          \"field\": \"my_field1\"," +
+                        "          \"target_field\": \"my_field2\"," +
+                        "          \"ignore_missing\": false" +
+                        "        }" +
+                        "      }," +
+                        "      {" +
+                        "        \"lowercase\": {" +
+                        "          \"field\": \"my_field2\"," +
+                        "          \"target_field\": \"my_field3\"," +
+                        "          \"ignore_missing\": false" +
+                        "        }" +
+                        "      }," +
+                        "      {" +
+                        "        \"split\": {" +
+                        "          \"field\": \"my_field3\"," +
+                        "          \"separator\": \"\\\\s+\"," +
+                        "          \"target_field\": \"my_field4\"" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }";
+
+        Event e1 = new Event();
+        e1.setField("my_other_field", "myvalue");
+        Event e2 = IngestNodeFilter.filter(json, e1);
+        compareEventsExcludingFields(e1, e2, new String[]{"my_field2", "my_field3", "my_field4"});
+        List<String> expected = Arrays.asList("foo", "bar", "baz");
+        Assert.assertEquals(expected, e2.getField("my_field4"));
     }
 
     private static void compareEventsExcludingFields(Event e1, Event e2, String[] excludedFields) {
