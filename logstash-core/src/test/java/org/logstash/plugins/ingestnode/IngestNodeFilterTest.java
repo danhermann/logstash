@@ -10,6 +10,8 @@ import org.logstash.RubyUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,10 +33,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field", "my_value1");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field"});
         List<RubyString> rubyStrings = new ArrayList<>();
         rubyStrings.add(RubyString.newString(RubyUtil.RUBY, "my_value1"));
@@ -58,10 +61,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field", "1kb");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(1024L, e2.getField("my_field2"));
     }
@@ -82,10 +86,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field", "1024");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(1024L, e2.getField("my_field2"));
     }
@@ -106,10 +111,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field", "08/14/1991 13:45:55");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         String expected = "1991-08-14T13:45:55.000Z";
         Assert.assertEquals(expected, e2.getField("my_field2"));
@@ -133,10 +139,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field", "08/14/1991 13:45:55");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2", "_index"});
         RubyString expected = RubyString.newString(RubyUtil.RUBY, "<myindex-{1991-08-14||/d{yyyy-MM-dd|UTC}}>");
         Assert.assertEquals(expected, e2.getUnconvertedField("_index"));
@@ -156,10 +163,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field1.my_field2", "foo");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field1", "my_field1.my_field2"});
         Assert.assertEquals("foo", e2.getField("[my_field1][my_field2]"));
     }
@@ -178,9 +186,10 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         try {
-            IngestNodeFilter.filter(json, new Event());
+            ingestNodeFilter.filter(Collections.singleton(new Event()));
             Assert.fail("Exception should have been thrown");
         } catch (Exception e) {
             Assert.assertTrue(e.getMessage().contains("custom error message"));
@@ -206,12 +215,13 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         List<String> strings = new ArrayList<>(Arrays.asList("FOO", "BAR", "BAZ"));
         List<String> expected = strings.stream().map(String::toLowerCase).collect(Collectors.toList());
         e1.setField("my_array_field", strings);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_array_field", "_value"});
         Assert.assertEquals(expected, e2.getField("my_array_field"));
     }
@@ -231,10 +241,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field", "3.44 55.3.244.1");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field", "duration", "client"});
         Assert.assertEquals(3.44, e2.getField("duration"));
         Assert.assertEquals("55.3.244.1", e2.getField("client"));
@@ -256,11 +267,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         String value = "800.555.1234";
         e1.setField("my_field", value);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field"});
         Assert.assertEquals(value.replace(".", "-"), e2.getField("my_field"));
     }
@@ -281,12 +293,13 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         List<String> strings = new ArrayList<>(Arrays.asList("FOO", "BAR", "BAZ"));
         String expected = String.join("=", strings);
         e1.setField("my_array_field", strings);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_array_field", "my_field2"});
         Assert.assertEquals(expected, e2.getField("my_field2"));
     }
@@ -306,11 +319,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         String myRawJson = "{\"foo\": 2000}";
         e1.setField("my_raw_json", myRawJson);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_parsed_json"});
         Assert.assertEquals(2000L, e2.getField("[my_parsed_json][foo]"));
     }
@@ -331,11 +345,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         String myRawKv = "ip=1.2.3.4 error=REFUSED foo=bar";
         e1.setField("my_kv_field", myRawKv);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"ip", "error", "foo"});
         Assert.assertEquals("1.2.3.4", e2.getField("[ip]"));
         Assert.assertEquals("REFUSED", e2.getField("[error]"));
@@ -358,11 +373,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         String value = "FOO";
         e1.setField("my_field1", value);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(value, e1.getField("my_field1"));
         Assert.assertEquals(value.toLowerCase(), e2.getField("my_field2"));
@@ -383,12 +399,13 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         String value = "FOO";
         e1.setField("my_field1", value);
         e1.setField("my_field2", value);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field1"});
         Assert.assertNull(e2.getField("my_field1"));
     }
@@ -409,10 +426,11 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field1", "foo");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field1", "my_field2"});
         Assert.assertEquals(e1.getField("my_field1"), e2.getField("my_field2"));
     }
@@ -435,10 +453,11 @@ public class IngestNodeFilterTest {
                         "       }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("hostname", "FOO");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"host", "hostname"});
         Assert.assertEquals(e1.getField("hostname"), "FOO");
         Assert.assertEquals(e2.getField("host"), "foo");
@@ -459,11 +478,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field1", "foo");
         e1.setField("my_field2", "foo");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field1"});
         Assert.assertEquals(3.1415, e2.getField("my_field1"));
     }
@@ -484,11 +504,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_field1", "foo   bar baz");
         List<String> expected = new ArrayList<>(Arrays.asList("foo", "bar", "baz"));
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(expected, e2.getField("my_field2"));
     }
@@ -508,6 +529,7 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         String[] strings = new String[]{"foo", "bar", "baz"};
         List<String> stringList = new ArrayList<>(Arrays.asList(strings));
@@ -515,7 +537,7 @@ public class IngestNodeFilterTest {
         List<String> expected = Arrays.asList(strings);
         Event e1 = new Event();
         e1.setField("my_field1", stringList);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(expected, e2.getField("my_field2"));
     }
@@ -535,11 +557,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         String value = "   foo ";
         Event e1 = new Event();
         e1.setField("my_field1", value);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(value.trim(), e2.getField("my_field2"));
     }
@@ -560,11 +583,12 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         String value = "Foo bar baz";
         e1.setField("my_field1", value);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(value, e1.getField("my_field1"));
         Assert.assertEquals(value.toUpperCase(), e2.getField("my_field2"));
@@ -584,11 +608,13 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+
         String encodedUrl = "https%3A%2F%2Fwww.google.com";
         String expectedUrl = "https://www.google.com";
         Event e1 = new Event();
         e1.setField("my_field1", encodedUrl);
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2"});
         Assert.assertEquals(expectedUrl, e2.getField("my_field2"));
     }
@@ -629,13 +655,19 @@ public class IngestNodeFilterTest {
                         "      }" +
                         "    ]" +
                         "  }";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
 
         Event e1 = new Event();
         e1.setField("my_other_field", "myvalue");
-        Event e2 = IngestNodeFilter.filter(json, e1);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field2", "my_field3", "my_field4"});
         List<String> expected = Arrays.asList("foo", "bar", "baz");
         Assert.assertEquals(expected, e2.getField("my_field4"));
+    }
+
+    private static Event assertSingleEvent(Collection<Event> events) {
+        Assert.assertEquals(1, events.size());
+        return events.iterator().next();
     }
 
     private static void compareEventsExcludingFields(Event e1, Event e2, String[] excludedFields) {

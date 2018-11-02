@@ -20,6 +20,7 @@ import org.logstash.Event;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +29,22 @@ import java.util.function.BiFunction;
 
 public class IngestNodeFilter {
 
-    public static Event filter(String json, Event e) throws Exception {
-        IngestDocument doc = IngestMarshaller.toDocument(e);
-        getPipeline(json).execute(doc);
-        return IngestMarshaller.toEvent(doc);
+    //Collection<PluginConfigSpec<?>> configSchema();
+
+    private Pipeline pipeline;
+
+    public IngestNodeFilter(String json) {
+        this.pipeline = getPipeline(json);
+    }
+
+    public Collection<Event> filter(Collection<Event> e) throws Exception {
+        List<Event> events = new ArrayList<>();
+        for (Event evt : e) {
+            IngestDocument doc = IngestMarshaller.toDocument(evt);
+            pipeline.execute(doc);
+            events.add(IngestMarshaller.toEvent(doc));
+        }
+        return events;
     }
 
     private static Pipeline getPipeline(String json) {
