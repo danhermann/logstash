@@ -1,0 +1,110 @@
+{
+  "rename_hostname4": {
+    "processors": [
+      {
+        "set": {
+          "field": "my_field1",
+          "value": "FOO BAR BAZ"
+        }
+      },
+      {
+        "lowercase": {
+          "field": "my_field2",
+          "target_field": "my_field3",
+          "ignore_missing": false
+        }
+      },
+      {
+        "split": {
+          "field": "my_field3",
+          "separator": "\\\\s+",
+          "target_field": "my_field4"
+        }
+      },
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname5": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname6": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname7": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname8": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname2": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  },
+  "rename_hostname3": {
+    "processors": [
+      {
+        "rename": {
+          "field": "hostname",
+          "target_field": "host",
+          "ignore_missing": true
+        }
+      }
+    ]
+  }
+}

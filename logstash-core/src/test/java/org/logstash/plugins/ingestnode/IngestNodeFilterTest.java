@@ -8,6 +8,7 @@ import org.logstash.ConvertedMap;
 import org.logstash.Event;
 import org.logstash.RubyUtil;
 
+import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -23,7 +24,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"append\": {" +
@@ -32,8 +33,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field", "my_value1");
@@ -51,7 +53,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"bytes\": {" +
@@ -60,8 +62,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field", "1kb");
@@ -75,7 +78,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"convert\": {" +
@@ -85,8 +88,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field", "1024");
@@ -100,7 +104,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"date\": {" +
@@ -110,8 +114,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field", "08/14/1991 13:45:55");
@@ -126,7 +131,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"date_index_name\": {" +
@@ -138,8 +143,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field", "08/14/1991 13:45:55");
@@ -154,7 +160,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"dot_expander\": {" +
@@ -162,8 +168,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field1.my_field2", "foo");
@@ -177,7 +184,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"fail\": {" +
@@ -185,8 +192,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         try {
             ingestNodeFilter.filter(Collections.singleton(new Event()));
@@ -201,7 +209,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"foreach\": {" +
@@ -214,8 +222,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         List<String> strings = new ArrayList<>(Arrays.asList("FOO", "BAR", "BAZ"));
@@ -231,7 +240,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"grok\": {" +
@@ -240,8 +249,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field", "3.44 55.3.244.1");
@@ -256,7 +266,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"gsub\": {" +
@@ -266,8 +276,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         String value = "800.555.1234";
@@ -282,7 +293,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"join\": {" +
@@ -292,8 +303,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         List<String> strings = new ArrayList<>(Arrays.asList("FOO", "BAR", "BAZ"));
@@ -309,7 +321,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"json\": {" +
@@ -318,8 +330,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         String myRawJson = "{\"foo\": 2000}";
@@ -334,7 +347,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"kv\": {" +
@@ -344,8 +357,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         String myRawKv = "ip=1.2.3.4 error=REFUSED foo=bar";
@@ -362,7 +376,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"lowercase\": {" +
@@ -372,8 +386,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         String value = "FOO";
@@ -389,7 +404,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"remove\": {" +
@@ -398,8 +413,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         String value = "FOO";
@@ -415,7 +431,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"rename\": {" +
@@ -425,8 +441,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field1", "foo");
@@ -440,7 +457,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "         \"script\": {" +
@@ -452,8 +469,9 @@ public class IngestNodeFilterTest {
                         "          }" +
                         "       }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("hostname", "FOO");
@@ -468,7 +486,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"set\": {" +
@@ -477,8 +495,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field1", "foo");
@@ -493,7 +512,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"split\": {" +
@@ -503,8 +522,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_field1", "foo   bar baz");
@@ -519,7 +539,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"sort\": {" +
@@ -528,8 +548,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         String[] strings = new String[]{"foo", "bar", "baz"};
         List<String> stringList = new ArrayList<>(Arrays.asList(strings));
@@ -547,7 +568,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"trim\": {" +
@@ -556,8 +577,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         String value = "   foo ";
         Event e1 = new Event();
@@ -572,7 +594,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"uppercase\": {" +
@@ -582,8 +604,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         String value = "Foo bar baz";
@@ -598,7 +621,7 @@ public class IngestNodeFilterTest {
     public void testUrlDecodeProcessor() throws Exception {
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"urldecode\": {" +
@@ -607,8 +630,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         String encodedUrl = "https%3A%2F%2Fwww.google.com";
         String expectedUrl = "https://www.google.com";
@@ -624,7 +648,7 @@ public class IngestNodeFilterTest {
 
         String json =
 
-                "{" +
+                "{ \"my_pipeline\" : {" +
                         "    \"processors\": [" +
                         "      {" +
                         "        \"set\": {" +
@@ -654,8 +678,9 @@ public class IngestNodeFilterTest {
                         "        }" +
                         "      }" +
                         "    ]" +
-                        "  }";
-        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(json);
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
 
         Event e1 = new Event();
         e1.setField("my_other_field", "myvalue");
