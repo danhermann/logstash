@@ -79,13 +79,13 @@ public class IngestNodeFilter {
     private static Pipeline getPipeline(String pipelineId, String json) {
         Pipeline pipeline = null;
         try {
-            Pipeline.Factory factory = new Pipeline.Factory();
+            //Pipeline.Factory factory = new Pipeline.Factory();
             BytesReference b = new BytesArray(json);
 
             Map<String, Object> pipelineConfig = XContentHelper.convertToMap(b, false, XContentType.JSON).v2();
             IngestCommonPlugin ingestCommonPlugin = new IngestCommonPlugin();
             Map<String, Processor.Factory> processorFactories = ingestCommonPlugin.getProcessors(getParameters());
-            pipeline = factory.create(pipelineId, pipelineConfig, processorFactories);
+            pipeline = Pipeline.create(pipelineId, pipelineConfig, processorFactories, getScriptService());
         } catch (Exception e) {
             System.out.println("Error building pipeline\n" + e);
             e.printStackTrace();
@@ -98,7 +98,7 @@ public class IngestNodeFilter {
 
         BiFunction<Long, Runnable, ScheduledFuture<?>> scheduler =
                 (delay, command) -> threadPool.schedule(TimeValue.timeValueMillis(delay), ThreadPool.Names.GENERIC, command);
-        Processor.Parameters parameters = new Processor.Parameters(getEnvironment(), getScriptService(), null, null, null, scheduler);
+        Processor.Parameters parameters = new Processor.Parameters(getEnvironment(), getScriptService(), null, null, null, scheduler, null);
         return parameters;
     }
 

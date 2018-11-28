@@ -57,6 +57,7 @@ public class IngestNodeFilterTest {
                         "    \"processors\": [" +
                         "      {" +
                         "        \"bytes\": {" +
+                        //"          \"if\": \"ctx.my_field == '1kb'\"," +
                         "          \"field\": \"my_field\"," +
                         "          \"target_field\": \"my_field2\"" +
                         "        }" +

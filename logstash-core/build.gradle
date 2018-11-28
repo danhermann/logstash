@@ -118,12 +118,20 @@ def customJRubyDir = project.hasProperty("custom.jruby.path") ? project.property
 def customJRubyVersion = customJRubyDir == "" ? "" : Files.readAllLines(Paths.get(customJRubyDir, "VERSION")).get(0).trim()
 
 dependencies {
+    /*
     compile files('local_libs/elasticsearch-6.4.0.jar')
     compile files('local_libs/elasticsearch-core-6.4.0.jar')
     compile files('local_libs/elasticsearch-grok-6.4.0.jar')
     compile files('local_libs/elasticsearch-x-content-6.4.0.jar')
     compile files('local_libs/lucene-core-7.4.0.jar')
     compile files('local_libs/ingest-common-6.4.0.jar')
+    */
+    compile files('local_libs/elasticsearch-6.5.0.jar')
+    compile files('local_libs/elasticsearch-core-6.5.0.jar')
+    compile files('local_libs/elasticsearch-grok-6.5.0.jar')
+    compile files('local_libs/elasticsearch-x-content-6.5.0.jar')
+    compile files('local_libs/lucene-core-7.5.0.jar')
+    compile files('local_libs/ingest-common-6.5.0.jar')
     compile 'org.apache.logging.log4j:log4j-api:2.9.1'
     compile 'org.apache.logging.log4j:log4j-core:2.9.1'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'
