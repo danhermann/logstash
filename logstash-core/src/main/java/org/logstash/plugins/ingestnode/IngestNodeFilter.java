@@ -5,13 +5,19 @@ import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.*;
+import org.elasticsearch.common.xcontent.XContentHelper;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.ingest.IngestDocument;
 import org.elasticsearch.ingest.Pipeline;
 import org.elasticsearch.ingest.Processor;
 import org.elasticsearch.ingest.common.IngestCommonPlugin;
-import org.elasticsearch.plugins.ScriptPlugin;
+import org.elasticsearch.painless.PainlessScriptEngine;
+import org.elasticsearch.painless.spi.Whitelist;
+import org.elasticsearch.script.IngestConditionalScript;
+import org.elasticsearch.script.IngestScript;
+import org.elasticsearch.script.ScriptContext;
+import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.ScriptModule;
 import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.threadpool.ExecutorBuilder;
@@ -23,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +38,6 @@ import java.util.function.BiFunction;
 
 public class IngestNodeFilter {
 
-    //Collection<PluginConfigSpec<?>> configSchema();
     static final String PIPELINE_DEFINITIONS = "pipeline_definitions";
     static final String PRIMARY_PIPELINE = "primary_pipeline";
 
@@ -79,7 +85,6 @@ public class IngestNodeFilter {
     private static Pipeline getPipeline(String pipelineId, String json) {
         Pipeline pipeline = null;
         try {
-            //Pipeline.Factory factory = new Pipeline.Factory();
             BytesReference b = new BytesArray(json);
 
             Map<String, Object> pipelineConfig = XContentHelper.convertToMap(b, false, XContentType.JSON).v2();
@@ -117,8 +122,17 @@ public class IngestNodeFilter {
     }
 
     private static ScriptService getScriptService() {
-        List<ScriptPlugin> scriptPlugins = new ArrayList<>();
-        ScriptModule m = new ScriptModule(Settings.EMPTY, scriptPlugins);
-        return m.getScriptService();
+        Map<String, ScriptEngine> engines = new HashMap<>();
+        engines.put(PainlessScriptEngine.NAME, new PainlessScriptEngine(getSettings(), scriptContexts()));
+        ScriptService ss = new ScriptService(getSettings(), engines, ScriptModule.CORE_CONTEXTS);
+        return ss;
     }
+
+    private static Map<ScriptContext<?>, List<Whitelist>> scriptContexts() {
+        Map<ScriptContext<?>, List<Whitelist>> contexts = new HashMap<>();
+        contexts.put(IngestScript.CONTEXT, Whitelist.BASE_WHITELISTS);
+        contexts.put(IngestConditionalScript.CONTEXT, Whitelist.BASE_WHITELISTS);
+        return contexts;
+    }
+
 }

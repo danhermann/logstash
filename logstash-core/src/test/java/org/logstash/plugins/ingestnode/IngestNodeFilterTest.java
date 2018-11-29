@@ -57,7 +57,7 @@ public class IngestNodeFilterTest {
                         "    \"processors\": [" +
                         "      {" +
                         "        \"bytes\": {" +
-                        //"          \"if\": \"ctx.my_field == '1kb'\"," +
+                        "          \"if\": \"ctx.my_field == '1kb'\"," +
                         "          \"field\": \"my_field\"," +
                         "          \"target_field\": \"my_field2\"" +
                         "        }" +
@@ -463,7 +463,8 @@ public class IngestNodeFilterTest {
                         "      {" +
                         "         \"script\": {" +
                         "            \"lang\": \"painless\"," +
-                        "            \"source\": \"ctx.field_a_plus_b_times_c = (ctx.field_a + ctx.field_b) * params.param_c\"," +
+                        //"            \"source\": \"ctx.field_a_plus_b_times_c = (ctx.field_a + ctx.field_b) * params.param_c\"," +
+                        "            \"source\": \"ctx.painlessValue = params.param_c;\"," +
                         "            \"params\": {" +
                         "               \"param_c\": 10" +
                         "             }" +
