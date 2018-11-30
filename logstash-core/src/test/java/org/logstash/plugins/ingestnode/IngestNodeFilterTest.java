@@ -157,6 +157,40 @@ public class IngestNodeFilterTest {
     }
 
     @Test
+    public void testDissectProcessor() throws Exception {
+
+        String json =
+
+                "{ \"my_pipeline\" : {" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"dissect\": {" +
+                        "          \"field\": \"raw_log\"," +
+                        "          \"pattern\": \"%{clientip} %{ident} %{auth} [%{@timestamp}] \\\"%{verb} %{request} HTTP/%{httpversion}\\\" %{status} %{size}\"" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
+
+        String rawLogLine = "1.2.3.4 - - [30/Apr/1998:22:00:52 +0000] \"GET /english/venues/cities/images/montpellier/18.gif HTTP/1.0\" 200 3171";
+        Event e1 = new Event();
+        e1.setField("raw_log", rawLogLine);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
+        Assert.assertEquals(rawLogLine, e2.getField("raw_log"));
+        Assert.assertEquals("1.2.3.4", e2.getField("clientip"));
+        Assert.assertEquals("-", e2.getField("ident"));
+        Assert.assertEquals("-", e2.getField("auth"));
+        Assert.assertEquals("30/Apr/1998:22:00:52 +0000", e2.getField("@timestamp"));
+        Assert.assertEquals("GET", e2.getField("verb"));
+        Assert.assertEquals("/english/venues/cities/images/montpellier/18.gif", e2.getField("request"));
+        Assert.assertEquals("1.0", e2.getField("httpversion"));
+        Assert.assertEquals("200", e2.getField("status"));
+        Assert.assertEquals("3171", e2.getField("size"));
+    }
+
+    @Test
     public void testDotExpanderProcessor() throws Exception {
 
         String json =
@@ -178,6 +212,29 @@ public class IngestNodeFilterTest {
         Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field1", "my_field1.my_field2"});
         Assert.assertEquals("foo", e2.getField("[my_field1][my_field2]"));
+    }
+
+    @Test
+    public void testDropProcessor() throws Exception {
+
+        String json =
+
+                "{ \"my_pipeline\" : {" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"drop\": {" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
+
+        Event e1 = new Event();
+        e1.setField("my_field1", "foo");
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
+        compareEventsExcludingFields(e1, e2, new String[]{});
+        Assert.assertTrue(e2.isCancelled());
     }
 
     @Test
@@ -401,6 +458,47 @@ public class IngestNodeFilterTest {
     }
 
     @Test
+    public void testPipelineProcessor() throws Exception {
+
+        String json =
+
+                "{ \"my_pipeline\" : {" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"set\": {" +
+                        "          \"field\": \"my_field1\"," +
+                        "          \"value\": \"set from pipeline 1\"" +
+                        "        }," +
+                        "        \"pipeline\": {" +
+                        "          \"name\": \"my_pipeline2\"" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }," +
+                        "\"my_pipeline2\" : {" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"set\": {" +
+                        "          \"field\": \"my_field2\"," +
+                        "          \"value\": \"set from pipeline 2\"" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }" +
+                        "}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
+
+        Event e1 = new Event();
+        String value = "FOO";
+        e1.setField("my_field1", value);
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
+        compareEventsExcludingFields(e1, e2, new String[]{"my_field1", "my_field2"});
+        Assert.assertEquals("set from pipeline 1", e1.getField("my_field1"));
+        Assert.assertEquals("set from pipeline 2", e2.getField("my_field2"));
+    }
+
+    @Test
     public void testRemoveProcessor() throws Exception {
 
         String json =
@@ -482,6 +580,33 @@ public class IngestNodeFilterTest {
         Assert.assertEquals(e1.getField("hostname"), "FOO");
         Assert.assertEquals(e2.getField("host"), "foo");
     }
+
+/*
+    @Test
+    public void testSetSecurityUserProcessor() throws Exception {
+
+        String json =
+
+                "{ \"my_pipeline\" : {" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"set_security_user\": {" +
+                        "          \"field\": \"user\"" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
+
+        Event e1 = new Event();
+        e1.setField("my_field1", "foo");
+        e1.setField("my_field2", "foo");
+        Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
+        compareEventsExcludingFields(e1, e2, new String[]{"my_field1"});
+        Assert.assertEquals(3.1415, e2.getField("my_field1"));
+    }
+*/
 
     @Test
     public void testSetProcessor() throws Exception {

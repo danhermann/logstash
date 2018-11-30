@@ -76,8 +76,13 @@ public class IngestNodeFilter {
         List<Event> events = new ArrayList<>();
         for (Event evt : e) {
             IngestDocument doc = IngestMarshaller.toDocument(evt);
-            primaryPipeline.execute(doc);
-            events.add(IngestMarshaller.toEvent(doc));
+            IngestDocument result = primaryPipeline.execute(doc);
+            if (result != null) {
+                events.add(IngestMarshaller.toEvent(result));
+            } else {
+                evt.cancel();
+                events.add(evt);
+            }
         }
         return events;
     }
