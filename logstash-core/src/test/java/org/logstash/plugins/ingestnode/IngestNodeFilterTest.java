@@ -1,5 +1,6 @@
 package org.logstash.plugins.ingestnode;
 
+import org.elasticsearch.ElasticsearchException;
 import org.jruby.RubyString;
 import org.junit.Assert;
 import org.junit.Test;
@@ -257,8 +258,10 @@ public class IngestNodeFilterTest {
         try {
             ingestNodeFilter.filter(Collections.singleton(new Event()));
             Assert.fail("Exception should have been thrown");
-        } catch (Exception e) {
+        } catch (ElasticsearchException e) {
             Assert.assertTrue(e.getMessage().contains("custom error message"));
+        } catch (Exception e) {
+            Assert.fail("Typed exception should have been thrown");
         }
     }
 
@@ -494,7 +497,7 @@ public class IngestNodeFilterTest {
         e1.setField("my_field1", value);
         Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field1", "my_field2"});
-        Assert.assertEquals("set from pipeline 1", e1.getField("my_field1"));
+        Assert.assertEquals("set from pipeline 1", e2.getField("my_field1"));
         Assert.assertEquals("set from pipeline 2", e2.getField("my_field2"));
     }
 
@@ -576,9 +579,8 @@ public class IngestNodeFilterTest {
         Event e1 = new Event();
         e1.setField("hostname", "FOO");
         Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
-        compareEventsExcludingFields(e1, e2, new String[]{"host", "hostname"});
-        Assert.assertEquals(e1.getField("hostname"), "FOO");
-        Assert.assertEquals(e2.getField("host"), "foo");
+        compareEventsExcludingFields(e1, e2, new String[]{"painlessValue"});
+        Assert.assertEquals(10L, e2.getField("painlessValue"));
     }
 
 /*

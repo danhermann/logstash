@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
@@ -36,7 +37,7 @@ import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.BiFunction;
 
-public class IngestNodeFilter {
+public class IngestNodeFilter implements PipelineProvider {
 
     static final String PIPELINE_DEFINITIONS = "pipeline_definitions";
     static final String PRIMARY_PIPELINE = "primary_pipeline";
@@ -87,15 +88,17 @@ public class IngestNodeFilter {
         return events;
     }
 
-    private static Pipeline getPipeline(String pipelineId, String json) {
+    @Override
+    public Pipeline getPipelineByName(String name) {
+        return pipelines.get(name);
+    }
+
+    private Pipeline getPipeline(String pipelineId, String json) {
         Pipeline pipeline = null;
         try {
             BytesReference b = new BytesArray(json);
-
             Map<String, Object> pipelineConfig = XContentHelper.convertToMap(b, false, XContentType.JSON).v2();
-            IngestCommonPlugin ingestCommonPlugin = new IngestCommonPlugin();
-            Map<String, Processor.Factory> processorFactories = ingestCommonPlugin.getProcessors(getParameters());
-            pipeline = Pipeline.create(pipelineId, pipelineConfig, processorFactories, getScriptService());
+            pipeline = Pipeline.create(pipelineId, pipelineConfig, getProcessorFactories(), getScriptService());
         } catch (Exception e) {
             System.out.println("Error building pipeline\n" + e);
             e.printStackTrace();
@@ -103,22 +106,27 @@ public class IngestNodeFilter {
         return pipeline;
     }
 
+    private Map<String, Processor.Factory> getProcessorFactories() {
+        IngestCommonPlugin ingestCommonPlugin = new IngestCommonPlugin();
+        Map<String, Processor.Factory> defaultFactories = ingestCommonPlugin.getProcessors(getParameters());
+        Map<String, Processor.Factory> overriddenFactories = new HashMap<>(defaultFactories);
+        overriddenFactories.put(PipelineProcessor.TYPE, new PipelineProcessor.Factory(this));
+        return Collections.unmodifiableMap(overriddenFactories);
+    }
+
     private static Processor.Parameters getParameters() {
-        final ThreadPool threadPool = new ThreadPool(getSettings(), new ExecutorBuilder[0]);
+        final ThreadPool threadPool = new ThreadPool(getSettings());
 
         BiFunction<Long, Runnable, ScheduledFuture<?>> scheduler =
                 (delay, command) -> threadPool.schedule(TimeValue.timeValueMillis(delay), ThreadPool.Names.GENERIC, command);
-        Processor.Parameters parameters = new Processor.Parameters(getEnvironment(), getScriptService(), null, null, null, scheduler, null);
-        return parameters;
+        return new Processor.Parameters(getEnvironment(), getScriptService(), null, null, null, scheduler, null);
     }
 
     private static Settings getSettings() {
-        Settings s = Settings.builder()
+        return Settings.builder()
                 .put("path.home", "/")
                 .put("node.name", "foo")
                 .build();
-
-        return s;
     }
 
     private static Environment getEnvironment() {
@@ -129,8 +137,7 @@ public class IngestNodeFilter {
     private static ScriptService getScriptService() {
         Map<String, ScriptEngine> engines = new HashMap<>();
         engines.put(PainlessScriptEngine.NAME, new PainlessScriptEngine(getSettings(), scriptContexts()));
-        ScriptService ss = new ScriptService(getSettings(), engines, ScriptModule.CORE_CONTEXTS);
-        return ss;
+        return new ScriptService(getSettings(), engines, ScriptModule.CORE_CONTEXTS);
     }
 
     private static Map<ScriptContext<?>, List<Whitelist>> scriptContexts() {
