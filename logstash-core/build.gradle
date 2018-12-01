@@ -118,6 +118,17 @@ def customJRubyDir = project.hasProperty("custom.jruby.path") ? project.property
 def customJRubyVersion = customJRubyDir == "" ? "" : Files.readAllLines(Paths.get(customJRubyDir, "VERSION")).get(0).trim()
 
 dependencies {
+    compile 'org.elasticsearch:elasticsearch:6.5.0'
+    compile 'org.elasticsearch:elasticsearch-core:6.5.0'
+    compile 'org.elasticsearch:elasticsearch-x-content:6.5.0'
+    compile 'org.apache.lucene:lucene-core:7.5.0'
+    compile 'org.codelibs.elasticsearch.module:ingest-common:6.5.0'
+    compile 'org.codelibs.elasticsearch.module:lang-painless:6.5.0'
+
+    compile 'org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:6.5.0'
+    compile 'org.antlr:antlr4-runtime:4.5.3'
+    compile 'org.codelibs.elasticsearch.lib:grok:6.5.0'
+
     compile 'org.apache.logging.log4j:log4j-api:2.9.1'
     compile 'org.apache.logging.log4j:log4j-core:2.9.1'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'

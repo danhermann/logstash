@@ -1,0 +1,15 @@
+{
+  "my_pipeline": {
+    "processors": [
+      {
+        "script": {
+          "lang": "painless",
+          "source": "if (Math.random() < 0.99) {ctx.painlessValue = params.param_c}",
+          "params": {
+            "param_c": 10
+          }
+        }
+      }
+    ]
+  }
+}
