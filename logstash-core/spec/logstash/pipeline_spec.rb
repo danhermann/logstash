@@ -71,6 +71,7 @@ class DummyFilter < LogStash::Filters::Base
   config_name "dummyfilter"
   milestone 2
 
+  # call method to register Java plugin
   def register() end
 
   def filter(event) end

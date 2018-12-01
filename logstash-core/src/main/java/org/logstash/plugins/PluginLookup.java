@@ -23,6 +23,7 @@ public final class PluginLookup {
         return new PluginLookup.PluginClass() {
             @Override
             public PluginLookup.PluginLanguage language() {
+                // call plugin.isJava
                 return PluginLookup.PluginLanguage.RUBY;
             }
 
@@ -41,6 +42,7 @@ public final class PluginLookup {
         PluginLookup.PluginLanguage language();
 
         Object klass();
+
     }
 
     public enum PluginLanguage {
