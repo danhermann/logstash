@@ -4,10 +4,8 @@
       {
         "script": {
           "lang": "painless",
-          "source": "if (Math.random() < 0.99) {ctx.painlessValue = params.param_c}",
-          "params": {
-            "param_c": 10
-          }
+          "source": "String s = ctx.message; int idx = s.indexOf(','); int last = 0; while (idx > -1) { String kv = s.substring(last, idx); int eqidx = kv.indexOf('='); ctx[kv.substring(0,eqidx)] = kv.substring(eqidx+1); last = idx + 1; idx = s.indexOf(',', last); } String kv = s.substring(last); int eqidx = kv.indexOf('='); ctx[kv.substring(0,eqidx)] = kv.substring(eqidx+1);"
+
         }
       }
     ]

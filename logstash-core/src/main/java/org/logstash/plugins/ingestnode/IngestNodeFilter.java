@@ -89,8 +89,9 @@ public class IngestNodeFilter implements Filter, PipelineProvider {
         try {
             List<Event> events = new ArrayList<>();
             for (Event evt : e) {
-                IngestDocument doc = IngestMarshaller.toDocument(evt);
-                //IngestDocument doc = new IngestDocument(new HashMap<>(), new HashMap<>());
+                //IngestDocument doc = IngestMarshaller.toDocument(evt);
+                IngestDocument doc = new IngestDocument(new HashMap<>(), new HashMap<>());
+                doc.setFieldValue("message", "a=b,c=d,e=f,g=h");
                 IngestDocument result = primaryPipeline.execute(doc);
                 if (result != null) {
                     //events.add(IngestMarshaller.toEvent(result));
