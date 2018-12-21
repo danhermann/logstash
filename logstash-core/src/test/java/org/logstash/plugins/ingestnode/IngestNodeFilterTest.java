@@ -306,7 +306,7 @@ public class IngestNodeFilterTest {
                         "      {" +
                         "        \"grok\": {" +
                         "          \"field\": \"my_field\"," +
-                        "          \"patterns\": [\"{NUMBER:duration} %{IP:client}\"]" +
+                        "          \"patterns\": [\"%{NUMBER:duration} %{IP:client}\"]" +
                         "        }" +
                         "      }" +
                         "    ]" +
@@ -318,8 +318,39 @@ public class IngestNodeFilterTest {
         e1.setField("my_field", "3.44 55.3.244.1");
         Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
         compareEventsExcludingFields(e1, e2, new String[]{"my_field", "duration", "client"});
-        Assert.assertEquals(3.44, e2.getField("duration"));
+        Assert.assertEquals("3.44", e2.getField("duration"));
         Assert.assertEquals("55.3.244.1", e2.getField("client"));
+    }
+
+    @Test
+    public void testLongRunningGrokProcessor() throws Exception {
+
+        String json =
+
+                "{ \"my_pipeline\" : {" +
+                        "    \"processors\": [" +
+                        "      {" +
+                        "        \"grok\": {" +
+                        "          \"field\": \"my_field\"," +
+                        "          \"patterns\": [\"Bonsuche mit folgender Anfrage: Belegart->\\\\[%{WORD:param2},(?<param5>(\\\\s*%{NOTSPACE})*)\\\\] Zustand->ABGESCHLOSSEN Kassennummer->%{WORD:param9} Bonnummer->%{WORD:param10} Datum->%{DATESTAMP_OTHER:param11}\"]" +
+                        "        }" +
+                        "      }" +
+                        "    ]" +
+                        "  }}";
+        IngestNodeFilter ingestNodeFilter = new IngestNodeFilter(
+                new ByteArrayInputStream(json.getBytes()), "my_pipeline");
+
+        Event e1 = new Event();
+        e1.setField("my_field", "Bonsuche mit folgender Anfrage: Belegart->[EINGESCHRAENKTER_VERKAUF, VERKAUF, NACHERFASSUNG] Zustand->ABGESCHLOSSEN Kassennummer->2 Bonnummer->6362 Datum->Mon Jan 08 00:00:00 UTC 2018");
+        try {
+            Event e2 = assertSingleEvent(ingestNodeFilter.filter(Collections.singleton(e1)));
+            Assert.fail("Long-running grok expression should have been interrupted");
+        } catch (ElasticsearchException ex1) {
+            Assert.assertTrue(ex1.getMessage().contains("grok pattern matching was interrupted"));
+        } catch (Exception ex2) {
+            Assert.fail(String.format("Unexpected exception type '%s' for long-running grok expression",
+                    ex2.getClass().getName()));
+        }
     }
 
     @Test
@@ -564,7 +595,6 @@ public class IngestNodeFilterTest {
                         "      {" +
                         "         \"script\": {" +
                         "            \"lang\": \"painless\"," +
-                        //"            \"source\": \"ctx.field_a_plus_b_times_c = (ctx.field_a + ctx.field_b) * params.param_c\"," +
                         "            \"source\": \"ctx.painlessValue = params.param_c;\"," +
                         "            \"params\": {" +
                         "               \"param_c\": 10" +

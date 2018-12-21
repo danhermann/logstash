@@ -20,7 +20,6 @@ import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.ScriptModule;
 import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.threadpool.ExecutorBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.logstash.Event;
 
@@ -72,7 +71,6 @@ public class IngestNodeFilter implements PipelineProvider {
         }
     }
 
-
     public Collection<Event> filter(Collection<Event> e) throws Exception {
         List<Event> events = new ArrayList<>();
         for (Event evt : e) {
@@ -119,18 +117,20 @@ public class IngestNodeFilter implements PipelineProvider {
 
         BiFunction<Long, Runnable, ScheduledFuture<?>> scheduler =
                 (delay, command) -> threadPool.schedule(TimeValue.timeValueMillis(delay), ThreadPool.Names.GENERIC, command);
-        return new Processor.Parameters(getEnvironment(), getScriptService(), null, null, null, scheduler, null);
+        return new Processor.Parameters(getEnvironment(), getScriptService(), null, null,
+                threadPool::relativeTimeInMillis, scheduler, null);
     }
 
     private static Settings getSettings() {
         return Settings.builder()
                 .put("path.home", "/")
                 .put("node.name", "foo")
+                .put("ingest.grok.watchdog.interval", "1s")
+                .put("ingest.grok.watchdog.max_execution_time", "1s")
                 .build();
     }
 
     private static Environment getEnvironment() {
-
         return new Environment(getSettings(), null);
     }
 
@@ -146,5 +146,4 @@ public class IngestNodeFilter implements PipelineProvider {
         contexts.put(IngestConditionalScript.CONTEXT, Whitelist.BASE_WHITELISTS);
         return contexts;
     }
-
 }
